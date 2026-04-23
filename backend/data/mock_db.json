@@ -1,0 +1,102 @@
+{
+  "0654357b-5821-46b3-b3e6-e8ba557bce5c": {
+    "_id": "0654357b-5821-46b3-b3e6-e8ba557bce5c",
+    "_rev": "1-0654357b-5821-46b3-b3e6-e8ba557bce5c",
+    "assigned_volunteer_id": null,
+    "contact_info": {
+      "name": "Local Hospital",
+      "notes": null,
+      "phone": "9876543210"
+    },
+    "created_at": "2026-04-23T16:40:00.365604+00:00",
+    "document_type": "need",
+    "id": "0654357b-5821-46b3-b3e6-e8ba557bce5c",
+    "location": {
+      "label": null,
+      "lat": 16.85,
+      "lng": 74.57,
+      "pincode": null
+    },
+    "need_type": "medical",
+    "status": "pending",
+    "timestamp": "2026-04-23T16:40:00.365604+00:00",
+    "updated_at": "2026-04-23T16:40:00.365604+00:00",
+    "urgency": "high",
+    "vulnerability_score": 0.5
+  },
+  "2eeb4592-ae76-4e48-a1b5-3ec35e0246d8": {
+    "_id": "2eeb4592-ae76-4e48-a1b5-3ec35e0246d8",
+    "_rev": "1-2eeb4592-ae76-4e48-a1b5-3ec35e0246d8",
+    "assigned_volunteer_id": null,
+    "contact_info": {
+      "name": null,
+      "notes": "URGENT: We need water and medical kits at the community center in Sangli.",
+      "phone": null
+    },
+    "created_at": "2026-04-23T16:45:15.467388+00:00",
+    "document_type": "need",
+    "id": "2eeb4592-ae76-4e48-a1b5-3ec35e0246d8",
+    "location": {
+      "label": null,
+      "lat": null,
+      "lng": null,
+      "pincode": null
+    },
+    "need_type": "medical",
+    "status": "pending",
+    "timestamp": "2026-04-23T16:45:15.467388+00:00",
+    "updated_at": "2026-04-23T16:45:15.467388+00:00",
+    "urgency": "high",
+    "vulnerability_score": 0.5
+  },
+  "33ae527a-cbc5-4ca2-8a93-5a0c4951baa8": {
+    "_id": "33ae527a-cbc5-4ca2-8a93-5a0c4951baa8",
+    "_rev": "1-33ae527a-cbc5-4ca2-8a93-5a0c4951baa8",
+    "assigned_volunteer_id": null,
+    "contact_info": {
+      "name": "Citizen",
+      "notes": null,
+      "phone": "9111111111"
+    },
+    "created_at": "2026-04-23T16:42:27.755819+00:00",
+    "document_type": "need",
+    "id": "33ae527a-cbc5-4ca2-8a93-5a0c4951baa8",
+    "location": {
+      "label": null,
+      "lat": 16.7,
+      "lng": 74.24,
+      "pincode": null
+    },
+    "need_type": "food",
+    "status": "pending",
+    "timestamp": "2026-04-23T16:42:27.755819+00:00",
+    "updated_at": "2026-04-23T16:42:27.755819+00:00",
+    "urgency": "low",
+    "vulnerability_score": 0.5
+  },
+  "8f17f1e8-5d21-4af5-a1d0-2e9f4694a489": {
+    "_id": "8f17f1e8-5d21-4af5-a1d0-2e9f4694a489",
+    "_rev": "1-8f17f1e8-5d21-4af5-a1d0-2e9f4694a489",
+    "assigned_volunteer_id": null,
+    "contact_info": {
+      "name": null,
+      "notes": "URGENT: We need water and medical kits at the community center in Sangli.",
+      "phone": null
+    },
+    "created_at": "2026-04-23T16:45:42.776049+00:00",
+    "document_type": "need",
+    "id": "8f17f1e8-5d21-4af5-a1d0-2e9f4694a489",
+    "location": {
+      "label": null,
+      "lat": null,
+      "lng": null,
+      "pincode": null
+    },
+    "need_type": "medical",
+    "status": "pending",
+    "timestamp": "2026-04-23T16:45:42.776049+00:00",
+    "updated_at": "2026-04-23T16:45:42.776049+00:00",
+    "urgency": "high",
+    "vulnerability_score": 0.5
+  }
+}
