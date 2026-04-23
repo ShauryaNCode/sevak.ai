@@ -1,0 +1,18 @@
+# Environment
+.env
+
+# Local storage and runtime data
+data/
+.pytest_cache/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Test / coverage outputs
+.coverage
+htmlcov/
+
+# Local virtual environments
+.venv/
+venv/
