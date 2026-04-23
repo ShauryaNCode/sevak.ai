@@ -161,6 +161,49 @@ async def test_whatsapp_webhook_dedup_and_geographic_extraction(client) -> None:
     assert len(all_needs) == 1
 
 
+async def test_twilio_whatsapp_form_payload_is_normalized(client) -> None:
+    """Verify Twilio-style WhatsApp form payloads are accepted."""
+
+    response = await client.post(
+        "/api/v1/webhook/whatsapp",
+        data={
+            "From": "whatsapp:+917111111111",
+            "Body": "Need shelter near Kolhapur bus stand urgent",
+            "MessageSid": "SM-WA-001",
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["stored"] is True
+    assert body["inbound_message"]["provider"] == "twilio"
+    assert body["inbound_message"]["channel"] == "whatsapp"
+    assert body["inbound_message"]["provider_message_id"] == "SM-WA-001"
+    assert body["need"]["location"]["lat"] is not None
+    assert body["need"]["location"]["lng"] is not None
+
+
+async def test_sms_mock_webhook_uses_same_pipeline(client) -> None:
+    """Verify SMS mock payloads flow through the shared ingestion path."""
+
+    response = await client.post(
+        "/api/v1/webhook/sms",
+        json={
+            "From": "+919876543210",
+            "Body": "Need food in Solapur urgent",
+            "MessageSid": "SM123456",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["stored"] is True
+    assert body["duplicate"] is False
+    assert body["inbound_message"]["channel"] == "sms"
+    assert body["inbound_message"]["provider"] == "mock"
+    assert body["inbound_message"]["provider_message_id"] == "SM123456"
+    assert body["need"]["need_type"] == "food"
+
+
 async def test_whatsapp_unparsed_message_does_not_create_need(client) -> None:
     """Verify unknown webhook text does not create a malformed need."""
 

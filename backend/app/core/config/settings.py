@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     environment: Literal["development", "test", "staging", "production"] = "development"
     log_level: str = "INFO"
     api_v1_prefix: str = "/api/v1"
+    public_base_url: str | None = None
+    whatsapp_provider: Literal["twilio", "gupshup", "mock"] = "twilio"
+    sms_provider: Literal["twilio", "mock"] = "mock"
+    validate_provider_signatures: bool = False
+    twilio_account_sid: str | None = None
+    twilio_auth_token: str | None = None
+    twilio_whatsapp_number: str | None = None
+    twilio_sms_number: str | None = None
 
     use_couchdb: bool = False
     couchdb_url: str | None = None

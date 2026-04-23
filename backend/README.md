@@ -1,261 +1,254 @@
-# SevakAI — Backend (FastAPI)
+# SevakAI Backend
 
-## Purpose
+Production-style FastAPI backend for offline-first disaster intake, volunteer coordination, and communication-driven need creation.
 
-The backend is a **FastAPI application** serving as the authoritative coordination layer. It handles business logic, enforces access control, manages the CouchDB sync target, routes AI pipeline requests, and processes communication channel webhooks (WhatsApp/SMS).
+## What This Backend Supports
 
-It is designed for **horizontal scalability** and **async-first I/O** — critical when handling burst traffic during active disaster events.
+- Need submission, filtering, prioritization, matching, and assignment
+- WhatsApp webhook ingestion
+- SMS webhook ingestion
+- Twilio WhatsApp Sandbox compatibility
+- Mock SMS payloads that mirror real provider structure
+- JSON local storage fallback when CouchDB is not available
+- Debug endpoint for the last webhook received
 
----
+## API Summary
 
-## 🗂️ Directory Structure
+- `GET /health`
+- `GET /debug/webhook-last`
+- `POST /webhook/whatsapp`
+- `POST /webhook/sms`
+- `POST /api/v1/needs`
+- `GET /api/v1/needs`
+- `GET /api/v1/needs/prioritized`
+- `POST /api/v1/volunteers`
+- `POST /api/v1/match`
+- `POST /api/v1/assign`
 
-```
-backend/
-├── app/
-│   ├── main.py                      # Application factory, lifespan handlers
-│   ├── api/
-│   │   └── v1/
-│   │       ├── router.py            # Master API router (aggregates all endpoints)
-│   │       ├── endpoints/           # One file per resource
-│   │       │   ├── needs.py
-│   │       │   ├── volunteers.py
-│   │       │   ├── incidents.py
-│   │       │   ├── auth.py
-│   │       │   ├── resources.py
-│   │       │   ├── alerts.py
-│   │       │   └── webhooks.py
-│   │       └── dependencies/        # FastAPI Depends() providers
-│   │           ├── auth.py          # JWT decode, current_user injection
-│   │           ├── db.py            # DB session/connection injection
-│   │           └── pagination.py    # Common pagination params
-│   │
-│   ├── core/
-│   │   ├── config/
-│   │   │   └── settings.py          # Pydantic BaseSettings (env-driven)
-│   │   ├── security/
-│   │   │   ├── jwt.py               # Token creation, validation
-│   │   │   ├── hashing.py           # Password hashing (bcrypt)
-│   │   │   └── rbac.py              # Role-based access control logic
-│   │   ├── logging/
-│   │   │   └── setup.py             # Structured JSON logging config
-│   │   └── middleware/
-│   │       ├── request_id.py        # Inject X-Request-ID header
-│   │       ├── rate_limit.py        # Token bucket rate limiter
-│   │       └── error_handler.py     # Global exception → HTTP response mapper
-│   │
-│   ├── models/                      # SQLAlchemy ORM models (for relational data)
-│   │   ├── user.py
-│   │   ├── incident.py
-│   │   ├── need.py
-│   │   ├── volunteer.py
-│   │   ├── resource.py
-│   │   └── audit_log.py
-│   │
-│   ├── schemas/                     # Pydantic request/response schemas
-│   │   ├── user.py
-│   │   ├── need.py
-│   │   ├── volunteer.py
-│   │   ├── incident.py
-│   │   ├── resource.py
-│   │   └── common.py                # Pagination, envelope, error schemas
-│   │
-│   ├── services/                    # Business logic layer
-│   │   ├── need_service.py
-│   │   ├── volunteer_service.py
-│   │   ├── incident_service.py
-│   │   ├── resource_service.py
-│   │   ├── notification_service.py
-│   │   └── ai_triage_service.py     # Calls AI pipeline APIs
-│   │
-│   ├── db/
-│   │   ├── base.py                  # SQLAlchemy engine + session factory
-│   │   ├── couchdb.py               # CouchDB async client wrapper
-│   │   └── repositories/            # Data access objects (per model)
-│   │       ├── base_repository.py
-│   │       ├── need_repository.py
-│   │       ├── volunteer_repository.py
-│   │       └── incident_repository.py
-│   │
-│   ├── sync/
-│   │   ├── couch_replicator.py      # Manages CouchDB replication sessions
-│   │   ├── conflict_resolver.py     # Deterministic conflict resolution logic
-│   │   └── sync_router.py           # Routes sync traffic per user/zone
-│   │
-│   ├── integrations/
-│   │   ├── whatsapp/
-│   │   │   ├── webhook_handler.py   # Gupshup/Twilio webhook receiver
-│   │   │   ├── message_parser.py    # Raw WhatsApp → NormalizedMessage
-│   │   │   └── client.py            # Outbound WhatsApp API client
-│   │   └── sms/
-│   │       ├── webhook_handler.py
-│   │       ├── message_parser.py
-│   │       └── client.py
-│   │
-│   └── utils/
-│       ├── geo.py                   # Coordinate helpers, zone detection
-│       ├── datetime.py              # IST-aware datetime utilities
-│       └── validators.py            # Custom field validators (phone, Aadhaar)
-│
-├── tests/
-│   ├── unit/                        # Service and utility tests (no DB)
-│   ├── integration/                 # Tests against real DB (via testcontainers)
-│   └── e2e/                         # Full HTTP round-trip tests
-│
-├── migrations/                      # Alembic migration scripts
-├── scripts/                         # DB seed, fixture generation, admin CLI
-├── requirements.txt
-├── requirements-dev.txt
-├── Dockerfile
-└── pyproject.toml
-```
+## Local Setup Guide
 
----
+### Step 1: Install dependencies
 
-## 🏗️ Architecture Philosophy
-
-### Async-First
-Every I/O operation is `async`. The application uses:
-- `asyncpg` for PostgreSQL (audit/metadata store)
-- `aiohttp` / `httpx` for external HTTP calls
-- `motor` or native async driver for CouchDB
-- `aio-pika` for RabbitMQ/Pub-Sub event emission
-
-### Layered Architecture
-
-```
-HTTP Request
-     ↓
-  Router (FastAPI)
-     ↓
-  Dependencies (auth, db injection)
-     ↓
-  Endpoint (thin controller — validates input, calls service)
-     ↓
-  Service (business logic, orchestration)
-     ↓
-  Repository (data access, DB queries)
-     ↓
-  DB / External API
-```
-
-**Services never import from endpoints. Repositories never contain business logic.**
-
-### API Design
-- RESTful, versioned under `/api/v1/`
-- Consistent envelope response: `{ data, meta, errors }`
-- Cursor-based pagination for all list endpoints
-- HATEOAS links for related resources (future phase)
-- OpenAPI schema auto-generated via FastAPI
-
----
-
-## 🔐 Role-Based Access Control (RBAC)
-
-Roles are stored on the JWT claim `role`. The `rbac.py` module provides a declarative permission decorator:
-
-```python
-# Example (placeholder — do not implement yet)
-@require_role([Role.COORDINATOR, Role.ADMIN])
-async def update_need_status(need_id: UUID, ...):
-    ...
-```
-
-Roles: `VOLUNTEER`, `ZONE_COORDINATOR`, `DISTRICT_ADMIN`, `NATIONAL_ADMIN`, `AI_SYSTEM`
-
-All role checks are enforced at the **dependency layer**, not in services. Services assume the caller is authorized.
-
----
-
-## 🔄 CouchDB Sync Integration
-
-The backend serves two functions in the sync architecture:
-
-1. **Sync Target**: CouchDB is the master store for all documents that need offline sync. The backend API writes to CouchDB for all sync-eligible models.
-
-2. **Conflict Arbiter**: When the `/sync/resolve` endpoint is called (or via background job), `conflict_resolver.py` applies deterministic rules:
-   - Higher-role edits win in overlap
-   - For same-role conflicts: latest `_rev` with highest `updated_at` wins
-   - Conflicts are **always logged** to the audit trail — never silently discarded
-
-See `/backend/app/sync/README.md` for protocol details.
-
----
-
-## 📡 Communication Webhooks
-
-Inbound messages from WhatsApp/SMS arrive as webhooks and flow through:
-
-```
-Webhook HTTP POST
-     ↓
-webhook_handler.py  (validates signature, acknowledges 200 immediately)
-     ↓
-message_parser.py   (extracts sender, content, media)
-     ↓
-NormalizedMessage   (canonical schema)
-     ↓
-AI Triage Service   (sends to ai-pipeline for NLP processing)
-     ↓
-Need / Alert created in DB
-```
-
-Webhook handlers must **respond within 5 seconds** (Twilio/Gupshup requirement). All heavy processing is async via task queue.
-
----
-
-## ⚙️ Configuration
-
-All configuration is environment-driven via `core/config/settings.py` using Pydantic `BaseSettings`.
-
-```
-# Required env vars (see .env.example)
-DATABASE_URL=postgresql+asyncpg://...
-COUCHDB_URL=http://admin:password@localhost:5984
-REDIS_URL=redis://localhost:6379
-SECRET_KEY=...
-GEMINI_API_KEY=...
-TWILIO_AUTH_TOKEN=...
-GUPSHUP_API_KEY=...
-```
-
-Never hardcode secrets. Use GCP Secret Manager in production.
-
----
-
-## 🧪 Testing Strategy
-
-| Type        | Framework              | Target                                    |
-|-------------|------------------------|-------------------------------------------|
-| Unit        | `pytest` + `pytest-asyncio` | Services, utilities, parsers         |
-| Integration | `pytest` + `testcontainers` | Repositories, DB queries             |
-| E2E         | `pytest` + `httpx.AsyncClient` | Full request cycles               |
+From the `backend/` directory:
 
 ```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=app --cov-report=html
-
-# Run only unit tests
-pytest tests/unit/
-```
-
----
-
-## 🚀 Running Locally
-
-```bash
-# Install dependencies
 pip install -r requirements.txt -r requirements-dev.txt
+```
 
-# Run migrations
-alembic upgrade head
+### Step 2: Configure environment
 
-# Start the server
-uvicorn app.main:app --reload --port 8000
+Copy the example file:
 
-# API docs
-open http://localhost:8000/docs
+```bash
+copy .env.example .env
+```
+
+Recommended local values:
+
+```env
+ENVIRONMENT=development
+LOG_LEVEL=INFO
+API_V1_PREFIX=/api/v1
+PUBLIC_BASE_URL=
+
+WHATSAPP_PROVIDER=twilio
+SMS_PROVIDER=mock
+VALIDATE_PROVIDER_SIGNATURES=false
+
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
+TWILIO_SMS_NUMBER=
+
+USE_COUCHDB=false
+STORAGE_PATH=data/mock_db.json
+```
+
+Notes:
+- `PUBLIC_BASE_URL` should be set after ngrok starts.
+- Leave `VALIDATE_PROVIDER_SIGNATURES=false` for quick local testing.
+- Turn it on only when you are ready to validate Twilio signatures using your real auth token.
+
+### Step 3: Run backend
+
+From the `backend/` directory:
+
+```bash
+uvicorn main:app --reload --port 8000
+```
+
+The app will be available locally on:
+
+```text
+http://127.0.0.1:8000
+```
+
+## Start ngrok
+
+Expose the backend publicly:
+
+```bash
+ngrok http 8000
+```
+
+ngrok will show an HTTPS forwarding URL such as:
+
+```text
+https://abcd-1234.ngrok-free.app
+```
+
+Copy that URL and set it in `.env`:
+
+```env
+PUBLIC_BASE_URL=https://abcd-1234.ngrok-free.app
+```
+
+Restart the backend after updating `.env`.
+
+## Twilio WhatsApp Sandbox Setup
+
+### Step 4: Configure Twilio Sandbox
+
+1. Open the Twilio WhatsApp Sandbox console.
+2. Join the sandbox from your phone by sending the provided join message to the sandbox number.
+3. Set the inbound webhook URL to:
+
+```text
+https://abcd-1234.ngrok-free.app/webhook/whatsapp
+```
+
+4. Save the Twilio credentials into `.env`:
+
+```env
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
+```
+
+Optional:
+- Set `VALIDATE_PROVIDER_SIGNATURES=true` once the webhook is stable and credentials are correct.
+
+## Test the WhatsApp Flow
+
+### Step 5: Send a message
+
+From the sandbox-joined WhatsApp account, send:
+
+```text
+Need water in Sangli urgent
+```
+
+Expected flow:
+- Twilio sends a form-encoded webhook to `/webhook/whatsapp`
+- Backend normalizes it into a canonical inbound message
+- Parser extracts need type, urgency, and known location details
+- Need is created or deduplicated if already seen recently
+- Record becomes visible through:
+  - `GET /debug/webhook-last`
+  - `GET /api/v1/needs`
+
+## SMS Simulation
+
+SMS is mock-first but shaped like a real provider.
+
+POST to:
+
+```text
+/webhook/sms
+```
+
+Example payload:
+
+```json
+{
+  "From": "+919876543210",
+  "Body": "Need food urgent",
+  "MessageSid": "SM123"
+}
+```
+
+Example using PowerShell:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/webhook/sms" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{"From":"+919876543210","Body":"Need food urgent","MessageSid":"SM123"}'
+```
+
+This flows through the same backend pipeline as WhatsApp:
+- normalize inbound message
+- deduplicate
+- parse
+- create need
+
+## Health and Debug Endpoints
+
+### Health
+
+```text
+GET /health
+```
+
+Returns:
+- backend status
+- storage backend in use
+- current timestamp
+- configured public base URL
+- resolved webhook paths
+
+### Last Webhook Debug
+
+```text
+GET /debug/webhook-last
+```
+
+Returns:
+- last received webhook payload
+- which channel hit the system
+- path used
+- content type information
+
+This is useful for verifying that ngrok, Twilio, and payload parsing are all aligned.
+
+## Stable Webhook Paths
+
+Use these public paths in local-demo or sandbox setups:
+
+- `/webhook/whatsapp`
+- `/webhook/sms`
+
+The versioned API paths still exist internally, but for external providers use the stable root paths above.
+
+## Outbound Messaging Behavior
+
+The backend exposes outbound provider stubs behind a provider-agnostic interface.
+
+Current behavior:
+- if Twilio credentials and the required sending number exist, the backend can send through Twilio
+- otherwise it logs the outbound message in fallback mode
+
+This keeps local demos free-tier friendly while preserving a production-ready interface.
+
+## Debugging Tips
+
+- Check `GET /health`
+- Check `GET /debug/webhook-last`
+- Ensure ngrok is forwarding to port `8000`
+- Ensure the Twilio webhook URL exactly matches the current ngrok HTTPS URL
+- Restart the backend after editing `.env`
+- If Twilio messages are not arriving, keep `VALIDATE_PROVIDER_SIGNATURES=false` first, then enable it later
+- If storage seems wrong, delete `data/mock_db.json` and restart for a clean local state
+
+## Running Tests
+
+```bash
+pytest tests -q
+```
+
+Focused communication test run:
+
+```bash
+pytest tests/e2e/test_backend_features.py -q
 ```

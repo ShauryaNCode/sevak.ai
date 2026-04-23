@@ -32,7 +32,7 @@ class AITriageService:
         "low": {"whenever"},
     }
 
-    def parse_whatsapp_message(self, raw_text: str) -> WebhookParseResult:
+    def parse_message(self, raw_text: str) -> WebhookParseResult:
         """Convert a raw inbound message into a structured triage result."""
 
         lowered = raw_text.strip().lower()
@@ -65,12 +65,30 @@ class AITriageService:
             confidence=min(confidence, 1.0),
         )
 
+    def parse_whatsapp_message(self, raw_text: str) -> WebhookParseResult:
+        """Backward-compatible wrapper for WhatsApp parsing."""
+
+        return self.parse_message(raw_text)
+
+    def parse_sms_message(self, raw_text: str) -> WebhookParseResult:
+        """Backward-compatible wrapper for SMS parsing."""
+
+        return self.parse_message(raw_text)
+
     def build_message_fingerprint(self, sender_number: str | None, raw_text: str) -> str:
         """Create a deterministic fingerprint for deduplication."""
 
-        normalized_sender = (sender_number or "").strip().lower()
+        normalized_sender = self.normalize_sender(sender_number)
         normalized_text = " ".join(raw_text.strip().lower().split())
         return hashlib.sha256(f"{normalized_sender}:{normalized_text}".encode("utf-8")).hexdigest()
+
+    def normalize_sender(self, sender_number: str | None) -> str:
+        """Normalize sender identifiers across SMS and WhatsApp providers."""
+
+        normalized_sender = (sender_number or "").strip().lower()
+        if normalized_sender.startswith("whatsapp:"):
+            normalized_sender = normalized_sender.split(":", maxsplit=1)[1]
+        return normalized_sender
 
     def _match_keyword(self, text: str, keyword_map: dict[str, set[str]]) -> str | None:
         for label, keywords in keyword_map.items():

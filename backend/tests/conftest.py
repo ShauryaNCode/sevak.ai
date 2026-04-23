@@ -34,6 +34,9 @@ async def app(monkeypatch: pytest.MonkeyPatch, test_storage_path: Path):
     monkeypatch.setenv("API_V1_PREFIX", "/api/v1")
     monkeypatch.setenv("RATE_LIMIT_MAX_REQUESTS", "1000")
     monkeypatch.setenv("RATE_LIMIT_WINDOW_SECONDS", "60")
+    monkeypatch.setenv("WHATSAPP_PROVIDER", "twilio")
+    monkeypatch.setenv("SMS_PROVIDER", "mock")
+    monkeypatch.setenv("VALIDATE_PROVIDER_SIGNATURES", "false")
 
     get_settings.cache_clear()
     application = create_application()

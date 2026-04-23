@@ -122,6 +122,14 @@ class NeedService:
             ]
         return results
 
+    async def get_need_or_raise(self, need_id: str) -> NeedDocument:
+        """Return a single need or raise a 404-style error."""
+
+        existing = await self.repository.get(need_id)
+        if not existing:
+            raise DocumentNotFoundError(f"Need {need_id} not found")
+        return self._to_schema(existing)
+
     async def assign_need(
         self,
         need_id: str,
