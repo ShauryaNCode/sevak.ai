@@ -7,7 +7,7 @@ from uuid import uuid4
 from app.db.couchdb import DocumentNotFoundError
 from app.db.repositories.camp_repository import CampRepository
 from app.db.repositories.idempotency_repository import IdempotencyRepository
-from app.schemas.camp import CampCreate, CampDocument
+from app.schemas.camp import CampCreate, CampDocument, CampManager
 from app.utils.datetime import utc_now
 
 
@@ -55,8 +55,9 @@ class CampService:
             "current_occupancy": payload.current_occupancy,
             "status": payload.status.value,
             "notes": payload.notes,
-            "manager_name": payload.manager_name,
-            "manager_phone": payload.manager_phone,
+            "manager_name": payload.manager_name or (payload.managers[0].name if payload.managers else None),
+            "manager_phone": payload.manager_phone or (payload.managers[0].phone if payload.managers else None),
+            "managers": [manager.model_dump() for manager in payload.managers],
             "created_at": existing.get("created_at", now.isoformat()) if existing else now.isoformat(),
             "updated_at": now.isoformat(),
         }
@@ -89,6 +90,29 @@ class CampService:
         if not document:
             raise DocumentNotFoundError(f"Camp {camp_id} not found")
         return self._to_schema(document)
+
+    async def update_managers(
+        self,
+        camp_id: str,
+        managers: list[CampManager],
+    ) -> CampDocument:
+        """Replace camp managers while preserving the rest of the document."""
+
+        existing = await self.camp_repository.get(camp_id)
+        if not existing:
+            raise DocumentNotFoundError(f"Camp {camp_id} not found")
+
+        updated = dict(existing)
+        updated["managers"] = [manager.model_dump() for manager in managers]
+        updated["manager_name"] = managers[0].name if managers else None
+        updated["manager_phone"] = managers[0].phone if managers else None
+        updated["updated_at"] = utc_now().isoformat()
+        saved = await self.camp_repository.save(
+            camp_id,
+            updated,
+            expected_revision=existing.get("_rev"),
+        )
+        return self._to_schema(saved)
 
     def _to_schema(self, document: dict) -> CampDocument:
         payload = dict(document)

@@ -131,11 +131,17 @@ def get_camp_service(
 def get_volunteer_service(
     volunteer_repository: VolunteerRepository = Depends(get_volunteer_repository),
     need_repository: NeedRepository = Depends(get_need_repository),
+    camp_repository: CampRepository = Depends(get_camp_repository),
     idempotency_repository: IdempotencyRepository = Depends(get_idempotency_repository),
 ) -> VolunteerService:
     """Build a volunteer service."""
 
-    return VolunteerService(volunteer_repository, need_repository, idempotency_repository)
+    return VolunteerService(
+        volunteer_repository,
+        need_repository,
+        camp_repository,
+        idempotency_repository,
+    )
 
 
 def get_communication_service(

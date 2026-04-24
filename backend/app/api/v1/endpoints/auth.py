@@ -126,6 +126,7 @@ async def _resolve_role_for_phone(request: Request, phone: str) -> Role:
 
     store = request.app.state.document_store
     volunteers = await store.list_documents("volunteer")
+    matched_volunteer_id: str | None = None
     for volunteer in volunteers:
         if phone not in {
             volunteer.get("phone_number"),
@@ -133,13 +134,24 @@ async def _resolve_role_for_phone(request: Request, phone: str) -> Role:
             volunteer.get("alternate_number"),
         }:
             continue
+        matched_volunteer_id = volunteer.get("id") or volunteer.get("_id")
         raw_role = volunteer.get("auth_role")
         if raw_role:
             try:
-                return Role(raw_role)
+                resolved_role = Role(raw_role)
+                if resolved_role != Role.VOLUNTEER:
+                    return resolved_role
             except ValueError:
                 logger.warning("Unknown volunteer auth_role %s for %s", raw_role, phone)
         break
+
+    if matched_volunteer_id is not None:
+        camps = await store.list_documents("camp")
+        for camp in camps:
+            managers = camp.get("managers") or []
+            for manager in managers:
+                if manager.get("volunteer_id") == matched_volunteer_id:
+                    return Role.ZONE_COORDINATOR
 
     return Role.VOLUNTEER
 

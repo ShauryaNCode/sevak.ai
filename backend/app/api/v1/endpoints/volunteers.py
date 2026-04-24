@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, HTTPException
 
 from app.api.v1.dependencies.db import get_volunteer_service
 from app.schemas.common import Envelope, MatchRequest
-from app.schemas.volunteer import VolunteerCreate, VolunteerDocument, VolunteerMatch, VolunteerRoleUpdate
+from app.schemas.volunteer import (
+    VolunteerCampAssignment,
+    VolunteerCreate,
+    VolunteerDocument,
+    VolunteerMatch,
+    VolunteerProfileUpdate,
+    VolunteerRoleUpdate,
+)
 from app.services.volunteer_service import VolunteerService
 
 
@@ -45,6 +52,31 @@ async def update_volunteer_role(
     """Update the auth role associated with a volunteer profile."""
 
     return Envelope(data=await service.update_auth_role(volunteer_id, payload.auth_role))
+
+
+@router.patch("/{volunteer_id}", response_model=Envelope[VolunteerDocument])
+async def update_volunteer_profile(
+    volunteer_id: str,
+    payload: VolunteerProfileUpdate,
+    service: VolunteerService = Depends(get_volunteer_service),
+) -> Envelope[VolunteerDocument]:
+    """Update volunteer profile details."""
+
+    return Envelope(data=await service.update_profile(volunteer_id, payload))
+
+
+@router.patch("/{volunteer_id}/camp", response_model=Envelope[VolunteerDocument])
+async def assign_volunteer_to_camp(
+    volunteer_id: str,
+    payload: VolunteerCampAssignment,
+    service: VolunteerService = Depends(get_volunteer_service),
+) -> Envelope[VolunteerDocument]:
+    """Assign a volunteer to a camp and sync their location to the camp."""
+
+    try:
+        return Envelope(data=await service.assign_to_camp(volunteer_id, payload.camp_id))
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @match_router.post("/match", response_model=Envelope[list[VolunteerMatch]])

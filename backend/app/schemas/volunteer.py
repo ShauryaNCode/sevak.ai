@@ -79,3 +79,23 @@ class VolunteerRoleUpdate(BaseModel):
     """Role update payload for a volunteer auth profile."""
 
     auth_role: Role
+
+
+class VolunteerProfileUpdate(BaseModel):
+    """Editable volunteer profile fields."""
+
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    whatsapp_number: str | None = Field(default=None, max_length=32)
+    alternate_number: str | None = Field(default=None, max_length=32)
+    gender: str | None = Field(default=None, max_length=32)
+    qualification: str | None = Field(default=None, max_length=120)
+    designation: str | None = Field(default=None, max_length=120)
+    notes: str | None = Field(default=None, max_length=1000)
+    skills: list[str] | None = None
+    location: LocationInfo | None = None
+
+
+class VolunteerCampAssignment(BaseModel):
+    """Assign or remove a volunteer from a camp."""
+
+    camp_id: str | None = Field(default=None, max_length=120)

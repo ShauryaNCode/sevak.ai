@@ -19,6 +19,15 @@ class CampStatus(str, Enum):
     closed = "closed"
 
 
+class CampManager(BaseModel):
+    """Manager metadata for a camp."""
+
+    volunteer_id: str | None = None
+    name: str = Field(min_length=2, max_length=120)
+    phone: str | None = Field(default=None, max_length=32)
+    role_label: str = Field(default="VOLUNTEER", max_length=64)
+
+
 class CampCreate(BaseModel):
     """Create request for a relief camp."""
 
@@ -32,6 +41,7 @@ class CampCreate(BaseModel):
     notes: str | None = Field(default=None, max_length=1000)
     manager_name: str | None = Field(default=None, max_length=120)
     manager_phone: str | None = Field(default=None, max_length=32)
+    managers: list[CampManager] = Field(default_factory=list)
 
 
 class CampDocument(CampCreate):
@@ -42,3 +52,9 @@ class CampDocument(CampCreate):
     updated_at: datetime
     revision: str
     document_type: str = "camp"
+
+
+class CampManagersUpdate(BaseModel):
+    """Update camp managers in bulk."""
+
+    managers: list[CampManager] = Field(default_factory=list)

@@ -9,6 +9,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../features/authentication/domain/entities/auth_user.dart';
 import '../../../../features/authentication/domain/entities/user_role.dart';
 import '../../../../features/authentication/presentation/bloc/auth_bloc.dart';
+import '../../../../services/location_service.dart';
 import '../../../../sync/sync_bloc.dart';
 import '../../../../ui/themes/app_colors.dart';
 import '../../../../ui/themes/app_spacing.dart';
@@ -260,8 +261,22 @@ class _OperationsApi {
     );
   }
 
+  Future<void> updateVolunteerCamp(String volunteerId, String? campId) async {
+    await _dio.patch<Map<String, dynamic>>(
+      '/volunteers/$volunteerId/camp',
+      data: <String, dynamic>{'camp_id': campId},
+    );
+  }
+
   Future<void> createCamp(Map<String, dynamic> payload) async {
     await _dio.post<Map<String, dynamic>>('/camps', data: payload);
+  }
+
+  Future<void> updateCampManagers(String campId, List<Map<String, dynamic>> managers) async {
+    await _dio.patch<Map<String, dynamic>>(
+      '/camps/$campId/managers',
+      data: <String, dynamic>{'managers': managers},
+    );
   }
 
   Future<void> createNeed(Map<String, dynamic> payload) async {
@@ -616,7 +631,7 @@ class _VolunteersManagementBodyState extends State<_VolunteersManagementBody> {
                           subtitle:
                               '${volunteer['designation'] ?? 'Volunteer'} · ${volunteer['qualification'] ?? 'General'} · ${volunteer['camp_id'] ?? 'Unassigned'}',
                           trailing: '${volunteer['status'] ?? 'available'} | ${volunteer['auth_role'] ?? 'VOLUNTEER'}',
-                          actionLabel: _updatingRole ? 'Updating...' : 'Access',
+                          actionLabel: _updatingRole ? 'Updating...' : 'Manage',
                           onAction: _updatingRole ? null : () => _showRoleDialog(volunteer),
                         ),
                       )
@@ -648,8 +663,18 @@ class _VolunteersManagementBodyState extends State<_VolunteersManagementBody> {
     }
   }
 
+  Map<String, dynamic>? get _selectedCamp {
+    for (final Map<String, dynamic> camp in _camps) {
+      if ('${camp['id']}' == _campId) {
+        return camp;
+      }
+    }
+    return null;
+  }
+
   Future<void> _createVolunteer() async {
     try {
+      final Map<String, dynamic>? selectedCamp = _selectedCamp;
       await _api.createVolunteer(
         <String, dynamic>{
           'name': _nameController.text.trim(),
@@ -665,7 +690,14 @@ class _VolunteersManagementBodyState extends State<_VolunteersManagementBody> {
               .map((String item) => item.trim())
               .where((String item) => item.isNotEmpty)
               .toList(),
-          'location': <String, dynamic>{'label': widget.user.zoneId},
+          'location': selectedCamp == null
+              ? <String, dynamic>{'label': widget.user.zoneId}
+              : <String, dynamic>{
+                  'label': '${selectedCamp['location']?['label'] ?? widget.user.zoneId}',
+                  'pincode': selectedCamp['location']?['pincode'],
+                  'lat': selectedCamp['location']?['lat'],
+                  'lng': selectedCamp['location']?['lng'],
+                },
           'availability': true,
           'status': 'available',
         },
@@ -684,28 +716,58 @@ class _VolunteersManagementBodyState extends State<_VolunteersManagementBody> {
 
   Future<void> _showRoleDialog(Map<String, dynamic> volunteer) async {
     final String currentRole = '${volunteer['auth_role'] ?? 'VOLUNTEER'}';
-    final String? nextRole = await showDialog<String>(
+    final String? currentCampId = volunteer['camp_id'] == null ? null : '${volunteer['camp_id']}';
+    final Map<String, String>? result = await showDialog<Map<String, String>>(
       context: context,
       builder: (BuildContext context) {
         String selectedRole = currentRole;
+        String? selectedCampId = currentCampId;
         return StatefulBuilder(
           builder: (BuildContext context, void Function(void Function()) setModalState) {
             return AlertDialog(
-              title: Text('Set access for ${volunteer['name']}'),
-              content: DropdownButtonFormField<String>(
-                value: selectedRole,
-                decoration: const InputDecoration(labelText: 'Access role'),
-                items: const <DropdownMenuItem<String>>[
-                  DropdownMenuItem<String>(value: 'VOLUNTEER', child: Text('Volunteer')),
-                  DropdownMenuItem<String>(value: 'ZONE_COORDINATOR', child: Text('Zone Coordinator')),
-                  DropdownMenuItem<String>(value: 'DISTRICT_ADMIN', child: Text('District Admin')),
-                  DropdownMenuItem<String>(value: 'NATIONAL_ADMIN', child: Text('National Admin')),
-                ],
-                onChanged: (String? value) {
-                  if (value != null) {
-                    setModalState(() => selectedRole = value);
-                  }
-                },
+              title: Text('Manage ${volunteer['name']}'),
+              content: SizedBox(
+                width: 360,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    DropdownButtonFormField<String>(
+                      value: selectedRole,
+                      decoration: const InputDecoration(labelText: 'Access role'),
+                      items: const <DropdownMenuItem<String>>[
+                        DropdownMenuItem<String>(value: 'VOLUNTEER', child: Text('Volunteer')),
+                        DropdownMenuItem<String>(value: 'ZONE_COORDINATOR', child: Text('Zone Coordinator')),
+                        DropdownMenuItem<String>(value: 'DISTRICT_ADMIN', child: Text('District Admin')),
+                        DropdownMenuItem<String>(value: 'NATIONAL_ADMIN', child: Text('National Admin')),
+                      ],
+                      onChanged: (String? value) {
+                        if (value != null) {
+                          setModalState(() => selectedRole = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    DropdownButtonFormField<String?>(
+                      value: selectedCampId,
+                      decoration: const InputDecoration(labelText: 'Camp assignment'),
+                      items: <DropdownMenuItem<String?>>[
+                        const DropdownMenuItem<String?>(value: null, child: Text('Unassigned')),
+                        ..._camps.map(
+                          (Map<String, dynamic> camp) => DropdownMenuItem<String?>(
+                            value: '${camp['id']}',
+                            child: Text('${camp['name']}'),
+                          ),
+                        ),
+                      ],
+                      onChanged: (String? value) => setModalState(() => selectedCampId = value),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Camp assignment sets the volunteer default location to the camp. Volunteers with an active assigned need cannot be moved until that need is completed.',
+                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral600),
+                    ),
+                  ],
+                ),
               ),
               actions: <Widget>[
                 TextButton(
@@ -713,7 +775,12 @@ class _VolunteersManagementBodyState extends State<_VolunteersManagementBody> {
                   child: const Text('Cancel'),
                 ),
                 FilledButton(
-                  onPressed: () => Navigator.of(context).pop(selectedRole),
+                  onPressed: () => Navigator.of(context).pop(
+                    <String, String>{
+                      'role': selectedRole,
+                      'campId': selectedCampId ?? '',
+                    },
+                  ),
                   child: const Text('Save'),
                 ),
               ],
@@ -723,7 +790,12 @@ class _VolunteersManagementBodyState extends State<_VolunteersManagementBody> {
       },
     );
 
-    if (nextRole == null || nextRole == currentRole) {
+    if (result == null) {
+      return;
+    }
+    final String nextRole = result['role'] ?? currentRole;
+    final String? nextCampId = (result['campId'] ?? '').isEmpty ? null : result['campId'];
+    if (nextRole == currentRole && nextCampId == currentCampId) {
       return;
     }
 
@@ -732,11 +804,16 @@ class _VolunteersManagementBodyState extends State<_VolunteersManagementBody> {
       _error = null;
     });
     try {
-      await _api.updateVolunteerRole('${volunteer['id']}', nextRole);
+      if (nextRole != currentRole) {
+        await _api.updateVolunteerRole('${volunteer['id']}', nextRole);
+      }
+      if (nextCampId != currentCampId) {
+        await _api.updateVolunteerCamp('${volunteer['id']}', nextCampId);
+      }
       await _load();
     } on DioException catch (error) {
       setState(() {
-        _error = error.response?.data.toString() ?? error.message ?? 'Unable to update volunteer access.';
+        _error = error.response?.data.toString() ?? error.message ?? 'Unable to update volunteer assignment.';
       });
     } finally {
       if (mounted) {
@@ -758,14 +835,17 @@ class _CampsManagementBody extends StatefulWidget {
 class _CampsManagementBodyState extends State<_CampsManagementBody> {
   final _OperationsApi _api = _OperationsApi();
   bool _loading = true;
+  bool _capturingLocation = false;
   String? _error;
   List<Map<String, dynamic>> _camps = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _volunteers = <Map<String, dynamic>>[];
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
   final TextEditingController _pincodeController = TextEditingController();
   final TextEditingController _capacityController = TextEditingController(text: '100');
-  final TextEditingController _managerNameController = TextEditingController();
-  final TextEditingController _managerPhoneController = TextEditingController();
+  final Set<String> _selectedManagerIds = <String>{};
+  bool _includeSelfAsManager = true;
+  CapturedLocation? _campLocation;
 
   @override
   void initState() {
@@ -779,8 +859,6 @@ class _CampsManagementBodyState extends State<_CampsManagementBody> {
     _locationController.dispose();
     _pincodeController.dispose();
     _capacityController.dispose();
-    _managerNameController.dispose();
-    _managerPhoneController.dispose();
     super.dispose();
   }
 
@@ -791,7 +869,7 @@ class _CampsManagementBodyState extends State<_CampsManagementBody> {
         if (_error != null) _OperationsError(message: _error!),
         _SectionSurface(
           title: 'Create Camp',
-          subtitle: 'Set up camps that volunteers can be mapped to and needs can be generated from.',
+          subtitle: 'Set up camps that volunteers can be mapped to, choose multiple camp managers, and capture GPS for future map accuracy.',
           child: Column(
             children: <Widget>[
               Row(
@@ -810,12 +888,55 @@ class _CampsManagementBodyState extends State<_CampsManagementBody> {
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-              Row(
-                children: <Widget>[
-                  Expanded(child: TextField(controller: _managerNameController, decoration: const InputDecoration(labelText: 'Manager name'))),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(child: TextField(controller: _managerPhoneController, decoration: const InputDecoration(labelText: 'Manager phone'))),
-                ],
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: _capturingLocation ? null : _captureCampLocation,
+                  icon: const Icon(Icons.my_location_rounded),
+                  label: Text(
+                    _capturingLocation
+                        ? 'Fetching GPS...'
+                        : _campLocation == null
+                            ? 'Use GPS Location'
+                            : 'GPS captured',
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              CheckboxListTile(
+                value: _includeSelfAsManager,
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Add me as camp manager'),
+                subtitle: Text('${widget.user.name} | ${widget.user.role.displayName}'),
+                onChanged: (bool? value) => setState(() => _includeSelfAsManager = value ?? false),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Volunteer managers',
+                  style: AppTextStyles.labelLarge.copyWith(color: AppColors.neutral600),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: _volunteers.map((Map<String, dynamic> volunteer) {
+                  final String volunteerId = '${volunteer['id']}';
+                  return FilterChip(
+                    selected: _selectedManagerIds.contains(volunteerId),
+                    label: Text('${volunteer['name']}'),
+                    onSelected: (bool selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedManagerIds.add(volunteerId);
+                        } else {
+                          _selectedManagerIds.remove(volunteerId);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
               ),
               const SizedBox(height: AppSpacing.lg),
               Align(
@@ -860,7 +981,11 @@ class _CampsManagementBodyState extends State<_CampsManagementBody> {
     });
     try {
       final List<Map<String, dynamic>> camps = await _api.listCamps();
-      setState(() => _camps = camps);
+      final List<Map<String, dynamic>> volunteers = await _api.listVolunteers();
+      setState(() {
+        _camps = camps;
+        _volunteers = volunteers;
+      });
     } on DioException catch (error) {
       setState(() => _error = error.message ?? 'Unable to load camps.');
     } finally {
@@ -870,8 +995,54 @@ class _CampsManagementBodyState extends State<_CampsManagementBody> {
     }
   }
 
+  Future<void> _captureCampLocation() async {
+    setState(() => _capturingLocation = true);
+    try {
+      final CapturedLocation capturedLocation = await LocationService.getCurrentLocation();
+      if (!mounted) {
+        return;
+      }
+      setState(() => _campLocation = capturedLocation);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Camp GPS location captured.')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = '$error');
+    } finally {
+      if (mounted) {
+        setState(() => _capturingLocation = false);
+      }
+    }
+  }
+
+  List<Map<String, dynamic>> _selectedManagers() {
+    return _selectedManagerIds.map((String managerId) {
+      final Map<String, dynamic> volunteer = _volunteers.firstWhere(
+        (Map<String, dynamic> item) => '${item['id']}' == managerId,
+      );
+      return <String, dynamic>{
+        'volunteer_id': managerId,
+        'name': '${volunteer['name']}',
+        'phone': volunteer['phone_number'] ?? volunteer['whatsapp_number'],
+        'role_label': '${volunteer['designation'] ?? 'Volunteer'}',
+      };
+    }).toList();
+  }
+
   Future<void> _createCamp() async {
     try {
+      final List<Map<String, dynamic>> managers = <Map<String, dynamic>>[
+        if (_includeSelfAsManager)
+          <String, dynamic>{
+            'name': widget.user.name,
+            'phone': widget.user.phone,
+            'role_label': widget.user.role.displayName,
+          },
+        ..._selectedManagers(),
+      ];
       await _api.createCamp(
         <String, dynamic>{
           'name': _nameController.text.trim(),
@@ -879,20 +1050,24 @@ class _CampsManagementBodyState extends State<_CampsManagementBody> {
           'location': <String, dynamic>{
             'label': _locationController.text.trim(),
             'pincode': _pincodeController.text.trim().isEmpty ? null : _pincodeController.text.trim(),
+            'lat': _campLocation?.latitude,
+            'lng': _campLocation?.longitude,
           },
           'capacity': int.tryParse(_capacityController.text.trim()) ?? 0,
           'current_occupancy': 0,
           'status': 'active',
-          'manager_name': _managerNameController.text.trim().isEmpty ? null : _managerNameController.text.trim(),
-          'manager_phone': _managerPhoneController.text.trim().isEmpty ? null : _managerPhoneController.text.trim(),
+          'manager_name': managers.isEmpty ? null : managers.first['name'],
+          'manager_phone': managers.isEmpty ? null : managers.first['phone'],
+          'managers': managers,
         },
       );
       _nameController.clear();
       _locationController.clear();
       _pincodeController.clear();
       _capacityController.text = '100';
-      _managerNameController.clear();
-      _managerPhoneController.clear();
+      _selectedManagerIds.clear();
+      _includeSelfAsManager = true;
+      _campLocation = null;
       await _load();
     } on DioException catch (error) {
       setState(() => _error = error.response?.data.toString() ?? error.message ?? 'Unable to create camp.');

@@ -5,12 +5,18 @@ from __future__ import annotations
 from uuid import uuid4
 
 from app.db.couchdb import DocumentNotFoundError
+from app.db.repositories.camp_repository import CampRepository
 from app.db.repositories.idempotency_repository import IdempotencyRepository
 from app.db.repositories.need_repository import NeedRepository
 from app.db.repositories.volunteer_repository import VolunteerRepository
 from app.core.security.rbac import Role
 from app.schemas.need import NeedDocument
-from app.schemas.volunteer import VolunteerCreate, VolunteerDocument, VolunteerMatch
+from app.schemas.volunteer import (
+    VolunteerCreate,
+    VolunteerDocument,
+    VolunteerMatch,
+    VolunteerProfileUpdate,
+)
 from app.utils.datetime import utc_now
 from app.utils.geo import haversine_distance_km
 from app.utils.validators import normalize_skill
@@ -23,10 +29,12 @@ class VolunteerService:
         self,
         volunteer_repository: VolunteerRepository,
         need_repository: NeedRepository,
+        camp_repository: CampRepository,
         idempotency_repository: IdempotencyRepository,
     ) -> None:
         self.volunteer_repository = volunteer_repository
         self.need_repository = need_repository
+        self.camp_repository = camp_repository
         self.idempotency_repository = idempotency_repository
 
     async def register_volunteer(
@@ -177,6 +185,44 @@ class VolunteerService:
         )
         return self._to_schema(saved)
 
+    async def update_profile(
+        self,
+        volunteer_id: str,
+        payload: VolunteerProfileUpdate,
+    ) -> VolunteerDocument:
+        """Update volunteer profile details without changing auth/session state."""
+
+        existing = await self.volunteer_repository.get(volunteer_id)
+        if not existing:
+            raise DocumentNotFoundError(f"Volunteer {volunteer_id} not found")
+
+        updated = dict(existing)
+        if payload.name is not None:
+            updated["name"] = payload.name
+        if payload.whatsapp_number is not None:
+            updated["whatsapp_number"] = payload.whatsapp_number
+        if payload.alternate_number is not None:
+            updated["alternate_number"] = payload.alternate_number
+        if payload.gender is not None:
+            updated["gender"] = payload.gender
+        if payload.qualification is not None:
+            updated["qualification"] = payload.qualification
+        if payload.designation is not None:
+            updated["designation"] = payload.designation
+        if payload.notes is not None:
+            updated["notes"] = payload.notes
+        if payload.skills is not None:
+            updated["skills"] = payload.skills
+        if payload.location is not None:
+            updated["location"] = payload.location.model_dump()
+        updated["updated_at"] = utc_now().isoformat()
+        saved = await self.volunteer_repository.save(
+            volunteer_id,
+            updated,
+            expected_revision=existing.get("_rev"),
+        )
+        return self._to_schema(saved)
+
     async def assign_to_need(
         self,
         volunteer_id: str,
@@ -200,7 +246,11 @@ class VolunteerService:
         )
         return self._to_schema(saved)
 
-    async def release_from_need(self, volunteer_id: str) -> VolunteerDocument:
+    async def release_from_need(
+        self,
+        volunteer_id: str,
+        location: dict | None = None,
+    ) -> VolunteerDocument:
         """Mark a volunteer as available after a need is completed."""
 
         existing = await self.volunteer_repository.get(volunteer_id)
@@ -211,6 +261,40 @@ class VolunteerService:
         updated["availability"] = True
         updated["status"] = "available"
         updated["current_assignment_need_id"] = None
+        updated["camp_id"] = None
+        if location is not None:
+            updated["location"] = location
+        updated["updated_at"] = utc_now().isoformat()
+        saved = await self.volunteer_repository.save(
+            volunteer_id,
+            updated,
+            expected_revision=existing.get("_rev"),
+        )
+        return self._to_schema(saved)
+
+    async def assign_to_camp(
+        self,
+        volunteer_id: str,
+        camp_id: str | None,
+    ) -> VolunteerDocument:
+        """Assign a volunteer to a camp and sync the volunteer location to the camp."""
+
+        existing = await self.volunteer_repository.get(volunteer_id)
+        if not existing:
+            raise DocumentNotFoundError(f"Volunteer {volunteer_id} not found")
+        if existing.get("current_assignment_need_id"):
+            raise ValueError("Volunteer still has an active assigned need")
+
+        updated = dict(existing)
+        updated["camp_id"] = camp_id
+        updated["availability"] = True
+        updated["status"] = "available"
+        updated["current_assignment_need_id"] = None
+        if camp_id is not None:
+            camp = await self.camp_repository.get(camp_id)
+            if not camp:
+                raise DocumentNotFoundError(f"Camp {camp_id} not found")
+            updated["location"] = camp.get("location", updated.get("location"))
         updated["updated_at"] = utc_now().isoformat()
         saved = await self.volunteer_repository.save(
             volunteer_id,

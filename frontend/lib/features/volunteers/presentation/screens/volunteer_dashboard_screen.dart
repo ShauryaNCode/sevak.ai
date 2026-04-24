@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../features/authentication/domain/entities/auth_user.dart';
+import '../../../../services/location_service.dart';
 import '../../../../ui/themes/app_colors.dart';
 import '../../../../ui/themes/app_spacing.dart';
 import '../../../../ui/themes/app_text_styles.dart';
@@ -25,6 +26,10 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
   static const String _volunteerProfileIdKey = 'volunteer_profile_id';
 
   final Dio _dio = getIt<Dio>();
+  final GlobalKey<FormState> _registrationFormKey = GlobalKey<FormState>();
+  final GlobalKey<FormState> _profileFormKey = GlobalKey<FormState>();
+  final GlobalKey<FormState> _needFormKey = GlobalKey<FormState>();
+
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _whatsAppController = TextEditingController();
   final TextEditingController _alternateController = TextEditingController();
@@ -34,11 +39,24 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
   final TextEditingController _locationLabelController = TextEditingController();
   final TextEditingController _pincodeController = TextEditingController();
   final TextEditingController _genderController = TextEditingController();
+  final TextEditingController _needTitleController = TextEditingController();
+  final TextEditingController _needDescriptionController = TextEditingController();
+  final TextEditingController _needLocationController = TextEditingController();
+  final TextEditingController _needPincodeController = TextEditingController();
+  final TextEditingController _needAffectedController = TextEditingController(text: '1');
 
   bool _loading = true;
   bool _submitting = false;
+  bool _capturingProfileLocation = false;
+  bool _capturingNeedLocation = false;
+  bool _updatingProfile = false;
+  bool _postingNeed = false;
   String? _error;
   String? _volunteerProfileId;
+  String _needType = 'medical';
+  String _needUrgency = 'medium';
+  CapturedLocation? _profileLocation;
+  CapturedLocation? _needLocation;
   List<Map<String, dynamic>> _needs = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _camps = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _volunteers = <Map<String, dynamic>>[];
@@ -62,7 +80,26 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
     _locationLabelController.dispose();
     _pincodeController.dispose();
     _genderController.dispose();
+    _needTitleController.dispose();
+    _needDescriptionController.dispose();
+    _needLocationController.dispose();
+    _needPincodeController.dispose();
+    _needAffectedController.dispose();
     super.dispose();
+  }
+
+  Map<String, dynamic>? get _profile {
+    for (final Map<String, dynamic> volunteer in _volunteers) {
+      if ('${volunteer['id']}' == _volunteerProfileId) {
+        return volunteer;
+      }
+    }
+    return null;
+  }
+
+  bool get _hasActiveAssignment {
+    final String assignmentId = '${_profile?['current_assignment_need_id'] ?? ''}';
+    return assignmentId.isNotEmpty;
   }
 
   @override
@@ -94,10 +131,13 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
                   },
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                if (_volunteerProfileId == null)
-                  _buildRegistrationCard()
-                else
+                if (_volunteerProfileId == null) _buildRegistrationCard() else ...<Widget>[
                   _buildVolunteerStatusCard(),
+                  const SizedBox(height: AppSpacing.lg),
+                  _buildProfileUpdateCard(),
+                  const SizedBox(height: AppSpacing.lg),
+                  _buildNewNeedCard(),
+                ],
                 const SizedBox(height: AppSpacing.lg),
                 _buildNeedsSection(),
                 const SizedBox(height: AppSpacing.lg),
@@ -110,52 +150,82 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
   Widget _buildRegistrationCard() {
     return _SectionCard(
       title: 'Complete Your Volunteer Profile',
-      subtitle: 'Register once so you can accept requests and be mapped to a camp.',
-      child: Column(
-        children: <Widget>[
-          _buildTextField(_nameController, 'Full name'),
-          const SizedBox(height: AppSpacing.md),
-          _buildTextField(_whatsAppController, 'WhatsApp number'),
-          const SizedBox(height: AppSpacing.md),
-          _buildTextField(_alternateController, 'Alternate number'),
-          const SizedBox(height: AppSpacing.md),
-          _buildTextField(_genderController, 'Gender'),
-          const SizedBox(height: AppSpacing.md),
-          _buildTextField(_qualificationController, 'Qualification'),
-          const SizedBox(height: AppSpacing.md),
-          _buildTextField(_designationController, 'Designation'),
-          const SizedBox(height: AppSpacing.md),
-          _buildTextField(_skillsController, 'Skills (comma separated)'),
-          const SizedBox(height: AppSpacing.md),
-          _buildTextField(_locationLabelController, 'Location / locality'),
-          const SizedBox(height: AppSpacing.md),
-          _buildTextField(_pincodeController, 'Pincode'),
-          const SizedBox(height: AppSpacing.lg),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _submitting ? null : _registerVolunteer,
-              icon: const Icon(Icons.app_registration_rounded),
-              label: Text(_submitting ? 'Registering...' : 'Register Volunteer'),
+      subtitle: 'Your location is mandatory so the future heat map can still place you even when GPS is unavailable.',
+      child: Form(
+        key: _registrationFormKey,
+        child: Column(
+          children: <Widget>[
+            _buildTextField(_nameController, 'Full name', required: true),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_whatsAppController, 'WhatsApp number', required: true),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_alternateController, 'Alternate number'),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_genderController, 'Gender', required: true),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_qualificationController, 'Qualification', required: true),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_designationController, 'Designation', required: true),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_skillsController, 'Skills (comma separated)'),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_locationLabelController, 'Location / locality', required: true),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_pincodeController, 'Pincode'),
+            const SizedBox(height: AppSpacing.md),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: _capturingProfileLocation ? null : _captureProfileLocation,
+                icon: const Icon(Icons.my_location_rounded),
+                label: Text(
+                  _capturingProfileLocation
+                      ? 'Fetching GPS...'
+                      : _profileLocation == null
+                          ? 'Use GPS Location'
+                          : 'GPS captured',
+                ),
+              ),
             ),
-          ),
-        ],
+            if (_profileLocation != null) ...<Widget>[
+              const SizedBox(height: AppSpacing.sm),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'GPS ${_profileLocation!.latitude.toStringAsFixed(5)}, ${_profileLocation!.longitude.toStringAsFixed(5)}',
+                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral600),
+                ),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.lg),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _submitting ? null : _registerVolunteer,
+                icon: const Icon(Icons.app_registration_rounded),
+                label: Text(_submitting ? 'Registering...' : 'Register Volunteer'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildVolunteerStatusCard() {
-    Map<String, dynamic>? profile;
-    for (final Map<String, dynamic> volunteer in _volunteers) {
-      if ('${volunteer['id']}' == _volunteerProfileId) {
-        profile = volunteer;
+    final Map<String, dynamic>? profile = _profile;
+    final String campId = '${profile?['camp_id'] ?? ''}';
+    Map<String, dynamic>? camp;
+    for (final Map<String, dynamic> item in _camps) {
+      if ('${item['id'] ?? ''}' == campId) {
+        camp = item;
         break;
       }
     }
 
     return _SectionCard(
       title: 'Your Volunteer Profile',
-      subtitle: 'You can now accept open needs and mark them completed.',
+      subtitle: 'You can accept only one live need at a time. Completing a need updates your map position to the need location and removes your camp assignment until a manager checks you back in.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -171,9 +241,153 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
               _Pill(label: 'ID ${_volunteerProfileId ?? '-'}'),
               _Pill(label: '${profile?['designation'] ?? 'Volunteer'}'),
               _Pill(label: '${profile?['qualification'] ?? 'General'}'),
+              _Pill(label: _hasActiveAssignment ? 'On mission' : 'Available'),
             ],
           ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            camp == null ? 'Camp: Unassigned' : 'Camp: ${camp['name']}',
+            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral600),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Current location: ${profile?['location']?['label'] ?? widget.user.zoneId}',
+            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral600),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildProfileUpdateCard() {
+    return _SectionCard(
+      title: 'Update Profile',
+      subtitle: 'Keep your fallback location and contact details current so managers can place you correctly even when GPS fails.',
+      child: Form(
+        key: _profileFormKey,
+        child: Column(
+          children: <Widget>[
+            _buildTextField(_nameController, 'Full name', required: true),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_whatsAppController, 'WhatsApp number', required: true),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_alternateController, 'Alternate number'),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_genderController, 'Gender', required: true),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_qualificationController, 'Qualification', required: true),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_designationController, 'Designation', required: true),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_skillsController, 'Skills (comma separated)'),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_locationLabelController, 'Fallback location', required: true),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_pincodeController, 'Pincode'),
+            const SizedBox(height: AppSpacing.md),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: _capturingProfileLocation ? null : _captureProfileLocation,
+                icon: const Icon(Icons.gps_fixed_rounded),
+                label: Text(_capturingProfileLocation ? 'Refreshing GPS...' : 'Update with GPS'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ElevatedButton.icon(
+                onPressed: _updatingProfile ? null : _updateProfile,
+                icon: const Icon(Icons.save_rounded),
+                label: Text(_updatingProfile ? 'Saving...' : 'Save Profile'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNewNeedCard() {
+    return _SectionCard(
+      title: 'Post New Need',
+      subtitle: 'Volunteers can raise fresh needs from the field. GPS is preferred, but manual location remains the fallback.',
+      child: Form(
+        key: _needFormKey,
+        child: Column(
+          children: <Widget>[
+            _buildTextField(_needTitleController, 'Need title', required: true),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_needDescriptionController, 'Description', required: true, maxLines: 3),
+            const SizedBox(height: AppSpacing.md),
+            Wrap(
+              spacing: AppSpacing.md,
+              runSpacing: AppSpacing.md,
+              children: <Widget>[
+                SizedBox(
+                  width: 180,
+                  child: DropdownButtonFormField<String>(
+                    value: _needType,
+                    decoration: const InputDecoration(labelText: 'Need type'),
+                    items: const <DropdownMenuItem<String>>[
+                      DropdownMenuItem<String>(value: 'food', child: Text('Food')),
+                      DropdownMenuItem<String>(value: 'water', child: Text('Water')),
+                      DropdownMenuItem<String>(value: 'medical', child: Text('Medical')),
+                      DropdownMenuItem<String>(value: 'shelter', child: Text('Shelter')),
+                      DropdownMenuItem<String>(value: 'rescue', child: Text('Rescue')),
+                    ],
+                    onChanged: (String? value) => setState(() => _needType = value ?? 'medical'),
+                  ),
+                ),
+                SizedBox(
+                  width: 180,
+                  child: DropdownButtonFormField<String>(
+                    value: _needUrgency,
+                    decoration: const InputDecoration(labelText: 'Urgency'),
+                    items: const <DropdownMenuItem<String>>[
+                      DropdownMenuItem<String>(value: 'low', child: Text('Low')),
+                      DropdownMenuItem<String>(value: 'medium', child: Text('Medium')),
+                      DropdownMenuItem<String>(value: 'high', child: Text('High')),
+                    ],
+                    onChanged: (String? value) => setState(() => _needUrgency = value ?? 'medium'),
+                  ),
+                ),
+                SizedBox(
+                  width: 180,
+                  child: _buildTextField(_needAffectedController, 'Affected count', required: true),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_needLocationController, 'Location / locality', required: true),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(_needPincodeController, 'Pincode'),
+            const SizedBox(height: AppSpacing.md),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: _capturingNeedLocation ? null : _captureNeedLocation,
+                icon: const Icon(Icons.location_searching_rounded),
+                label: Text(
+                  _capturingNeedLocation
+                      ? 'Fetching GPS...'
+                      : _needLocation == null
+                          ? 'Use GPS For Need'
+                          : 'Need GPS captured',
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ElevatedButton.icon(
+                onPressed: _postingNeed ? null : _postNeed,
+                icon: const Icon(Icons.campaign_rounded),
+                label: Text(_postingNeed ? 'Posting...' : 'Post Need'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -181,7 +395,7 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
   Widget _buildNeedsSection() {
     return _SectionCard(
       title: 'Live Requests',
-      subtitle: 'Accept a need to take ownership, then mark it completed once resolved.',
+      subtitle: 'Accept one open need at a time, then mark it completed once resolved.',
       child: Column(
         children: _needs.isEmpty
             ? <Widget>[
@@ -190,12 +404,16 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
                   style: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral600),
                 ),
               ]
-            : _needs.map((Map<String, dynamic> need) => _NeedCard(
+            : _needs.map((Map<String, dynamic> need) {
+                final bool canAccept = !_hasActiveAssignment;
+                return _NeedCard(
                   need: need,
                   volunteerProfileId: _volunteerProfileId,
+                  canAccept: canAccept,
                   onAccept: () => _assignNeed('${need['id']}'),
                   onComplete: () => _completeNeed('${need['id']}'),
-                )).toList(),
+                );
+              }).toList(),
       ),
     );
   }
@@ -203,7 +421,7 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
   Widget _buildCampsSection() {
     return _SectionCard(
       title: 'Camp Visibility',
-      subtitle: 'Mocked live updates for now. This gives volunteers clear camp destinations and location context.',
+      subtitle: 'Camps remain your return points. Managers can check you back in, which sets your active location to the camp for the future map view.',
       child: Column(
         children: _camps.isEmpty
             ? <Widget>[
@@ -244,12 +462,12 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
                             Text('${camp['name']}', style: AppTextStyles.titleMedium),
                             const SizedBox(height: AppSpacing.xs),
                             Text(
-                              '${camp['location']?['label'] ?? 'Unknown location'} · ${camp['zone_id']}',
+                              '${camp['location']?['label'] ?? 'Unknown location'} | ${camp['zone_id']}',
                               style: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral600),
                             ),
                             const SizedBox(height: AppSpacing.xs),
                             Text(
-                              'Occupancy ${camp['current_occupancy'] ?? 0}/${camp['capacity'] ?? 0} · Assigned volunteers $assignedVolunteers',
+                              'Occupancy ${camp['current_occupancy'] ?? 0}/${camp['capacity'] ?? 0} | Assigned volunteers $assignedVolunteers',
                               style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral500),
                             ),
                           ],
@@ -263,11 +481,101 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label) {
-    return TextField(
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label, {
+    bool required = false,
+    int maxLines = 1,
+  }) {
+    return TextFormField(
       controller: controller,
-      decoration: InputDecoration(labelText: label),
+      maxLines: maxLines,
+      validator: required ? (String? value) => _requiredValidator(value, label) : null,
+      decoration: InputDecoration(labelText: required ? '$label *' : label),
     );
+  }
+
+  String? _requiredValidator(String? value, String label) {
+    if (value == null || value.trim().isEmpty) {
+      return '$label is required';
+    }
+    return null;
+  }
+
+  List<String> _skillsFromText() {
+    return _skillsController.text
+        .split(',')
+        .map((String item) => item.trim())
+        .where((String item) => item.isNotEmpty)
+        .toList();
+  }
+
+  Map<String, dynamic> _profileLocationPayload() {
+    return <String, dynamic>{
+      'label': _locationLabelController.text.trim(),
+      'pincode': _pincodeController.text.trim().isEmpty ? null : _pincodeController.text.trim(),
+      'lat': _profileLocation?.latitude,
+      'lng': _profileLocation?.longitude,
+    };
+  }
+
+  Map<String, dynamic> _needLocationPayload() {
+    return <String, dynamic>{
+      'label': _needLocationController.text.trim(),
+      'pincode': _needPincodeController.text.trim().isEmpty ? null : _needPincodeController.text.trim(),
+      'lat': _needLocation?.latitude,
+      'lng': _needLocation?.longitude,
+    };
+  }
+
+  Future<void> _captureProfileLocation() async {
+    setState(() => _capturingProfileLocation = true);
+    try {
+      final CapturedLocation capturedLocation = await LocationService.getCurrentLocation();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _profileLocation = capturedLocation;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile GPS location captured.')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = '$error');
+    } finally {
+      if (mounted) {
+        setState(() => _capturingProfileLocation = false);
+      }
+    }
+  }
+
+  Future<void> _captureNeedLocation() async {
+    setState(() => _capturingNeedLocation = true);
+    try {
+      final CapturedLocation capturedLocation = await LocationService.getCurrentLocation();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _needLocation = capturedLocation;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Need GPS location captured.')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = '$error');
+    } finally {
+      if (mounted) {
+        setState(() => _capturingNeedLocation = false);
+      }
+    }
   }
 
   Future<void> _load() async {
@@ -283,11 +591,38 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
       final Response<Map<String, dynamic>> campsResponse = await _dio.get<Map<String, dynamic>>('/camps');
       final Response<Map<String, dynamic>> volunteersResponse = await _dio.get<Map<String, dynamic>>('/volunteers');
 
+      final List<Map<String, dynamic>> volunteers =
+          List<Map<String, dynamic>>.from(volunteersResponse.data?['data'] as List<dynamic>? ?? <dynamic>[]);
+      if (_volunteerProfileId == null) {
+        for (final Map<String, dynamic> volunteer in volunteers) {
+          final String phone = '${volunteer['phone_number'] ?? ''}';
+          final String whatsapp = '${volunteer['whatsapp_number'] ?? ''}';
+          if (phone == widget.user.phone || whatsapp == widget.user.phone) {
+            _volunteerProfileId = '${volunteer['id']}';
+            await prefs.setString(_volunteerProfileIdKey, _volunteerProfileId!);
+            break;
+          }
+        }
+      }
+
       setState(() {
         _needs = List<Map<String, dynamic>>.from(needsResponse.data?['data'] as List<dynamic>? ?? <dynamic>[]);
         _camps = List<Map<String, dynamic>>.from(campsResponse.data?['data'] as List<dynamic>? ?? <dynamic>[]);
-        _volunteers = List<Map<String, dynamic>>.from(volunteersResponse.data?['data'] as List<dynamic>? ?? <dynamic>[]);
+        _volunteers = volunteers;
       });
+
+      final Map<String, dynamic>? profile = _profile;
+      if (profile != null) {
+        _nameController.text = '${profile['name'] ?? widget.user.name}';
+        _whatsAppController.text = '${profile['whatsapp_number'] ?? widget.user.phone}';
+        _alternateController.text = '${profile['alternate_number'] ?? ''}';
+        _genderController.text = '${profile['gender'] ?? ''}';
+        _qualificationController.text = '${profile['qualification'] ?? ''}';
+        _designationController.text = '${profile['designation'] ?? ''}';
+        _skillsController.text = (profile['skills'] as List<dynamic>? ?? <dynamic>[]).join(', ');
+        _locationLabelController.text = '${profile['location']?['label'] ?? widget.user.zoneId}';
+        _pincodeController.text = '${profile['location']?['pincode'] ?? ''}';
+      }
     } on DioException catch (error) {
       setState(() {
         _error = error.message ?? 'Unable to load volunteer operations.';
@@ -302,6 +637,9 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
   }
 
   Future<void> _registerVolunteer() async {
+    if (!_registrationFormKey.currentState!.validate()) {
+      return;
+    }
     setState(() {
       _submitting = true;
       _error = null;
@@ -314,20 +652,13 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
           'phone_number': widget.user.phone,
           'whatsapp_number': _whatsAppController.text.trim(),
           'alternate_number': _alternateController.text.trim().isEmpty ? null : _alternateController.text.trim(),
-          'gender': _genderController.text.trim().isEmpty ? null : _genderController.text.trim(),
-          'qualification': _qualificationController.text.trim().isEmpty ? 'General' : _qualificationController.text.trim(),
-          'designation': _designationController.text.trim().isEmpty ? 'Volunteer' : _designationController.text.trim(),
+          'gender': _genderController.text.trim(),
+          'qualification': _qualificationController.text.trim(),
+          'designation': _designationController.text.trim(),
           'zone_id': widget.user.zoneId,
-          'skills': _skillsController.text
-              .split(',')
-              .map((String item) => item.trim())
-              .where((String item) => item.isNotEmpty)
-              .toList(),
+          'skills': _skillsFromText(),
           'notes': 'Registered from field app',
-          'location': <String, dynamic>{
-            'label': _locationLabelController.text.trim().isEmpty ? widget.user.zoneId : _locationLabelController.text.trim(),
-            'pincode': _pincodeController.text.trim().isEmpty ? null : _pincodeController.text.trim(),
-          },
+          'location': _profileLocationPayload(),
           'availability': true,
           'status': 'available',
         },
@@ -352,10 +683,96 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
     }
   }
 
+  Future<void> _updateProfile() async {
+    if (_volunteerProfileId == null || !_profileFormKey.currentState!.validate()) {
+      return;
+    }
+    setState(() {
+      _updatingProfile = true;
+      _error = null;
+    });
+    try {
+      await _dio.patch<Map<String, dynamic>>(
+        '/volunteers/$_volunteerProfileId',
+        data: <String, dynamic>{
+          'name': _nameController.text.trim(),
+          'whatsapp_number': _whatsAppController.text.trim(),
+          'alternate_number': _alternateController.text.trim().isEmpty ? null : _alternateController.text.trim(),
+          'gender': _genderController.text.trim(),
+          'qualification': _qualificationController.text.trim(),
+          'designation': _designationController.text.trim(),
+          'skills': _skillsFromText(),
+          'location': _profileLocationPayload(),
+          'notes': 'Updated from volunteer app',
+        },
+      );
+      await _load();
+    } on DioException catch (error) {
+      setState(() {
+        _error = error.response?.data.toString() ?? error.message ?? 'Unable to update profile.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _updatingProfile = false);
+      }
+    }
+  }
+
+  Future<void> _postNeed() async {
+    if (!_needFormKey.currentState!.validate()) {
+      return;
+    }
+    setState(() {
+      _postingNeed = true;
+      _error = null;
+    });
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '/needs',
+        data: <String, dynamic>{
+          'title': _needTitleController.text.trim(),
+          'description': _needDescriptionController.text.trim(),
+          'need_type': _needType,
+          'urgency': _needUrgency,
+          'affected_count': int.tryParse(_needAffectedController.text.trim()) ?? 1,
+          'source': 'APP',
+          'location': _needLocationPayload(),
+          'contact_info': <String, dynamic>{
+            'name': _nameController.text.trim(),
+            'phone': widget.user.phone,
+            'notes': 'Raised from volunteer app',
+          },
+          'vulnerability_score': 0.7,
+        },
+      );
+      _needTitleController.clear();
+      _needDescriptionController.clear();
+      _needLocationController.clear();
+      _needPincodeController.clear();
+      _needAffectedController.text = '1';
+      _needLocation = null;
+      await _load();
+    } on DioException catch (error) {
+      setState(() {
+        _error = error.response?.data.toString() ?? error.message ?? 'Unable to post need.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _postingNeed = false);
+      }
+    }
+  }
+
   Future<void> _assignNeed(String needId) async {
     if (_volunteerProfileId == null) {
       setState(() {
         _error = 'Complete your volunteer profile before accepting needs.';
+      });
+      return;
+    }
+    if (_hasActiveAssignment) {
+      setState(() {
+        _error = 'You already have an active job. Complete it before taking another one.';
       });
       return;
     }
@@ -394,12 +811,14 @@ class _NeedCard extends StatelessWidget {
   const _NeedCard({
     required this.need,
     required this.volunteerProfileId,
+    required this.canAccept,
     required this.onAccept,
     required this.onComplete,
   });
 
   final Map<String, dynamic> need;
   final String? volunteerProfileId;
+  final bool canAccept;
   final VoidCallback onAccept;
   final VoidCallback onComplete;
 
@@ -439,7 +858,7 @@ class _NeedCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            '${need['location']?['label'] ?? 'Unknown location'} · urgency ${need['urgency'] ?? '-'} · affected ${need['affected_count'] ?? 1}',
+            '${need['location']?['label'] ?? 'Unknown location'} | urgency ${need['urgency'] ?? '-'} | affected ${need['affected_count'] ?? 1}',
             style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral500),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -447,9 +866,9 @@ class _NeedCard extends StatelessWidget {
             children: <Widget>[
               if (isOpen)
                 ElevatedButton.icon(
-                  onPressed: onAccept,
+                  onPressed: canAccept ? onAccept : null,
                   icon: const Icon(Icons.task_alt_rounded),
-                  label: const Text('Accept'),
+                  label: Text(canAccept ? 'Accept' : 'Finish active job first'),
                 )
               else if (assignedToMe && !isCompleted)
                 ElevatedButton.icon(
@@ -584,24 +1003,17 @@ class _ErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       margin: const EdgeInsets.only(bottom: AppSpacing.lg),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.dangerRedLight,
+        color: AppColors.dangerRed.withOpacity(0.1),
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.dangerRed),
+        border: Border.all(color: AppColors.dangerRed.withOpacity(0.25)),
       ),
-      child: Row(
-        children: <Widget>[
-          const Icon(Icons.error_outline_rounded, color: AppColors.dangerRed),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              message,
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.dangerRed),
-            ),
-          ),
-        ],
+      child: Text(
+        message,
+        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.dangerRed),
       ),
     );
   }

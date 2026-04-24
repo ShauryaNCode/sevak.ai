@@ -141,6 +141,10 @@ class NeedService:
         existing = await self.repository.get(need_id)
         if not existing:
             raise DocumentNotFoundError(f"Need {need_id} not found")
+        if existing.get("status") == NeedStatus.completed.value:
+            raise ValueError("Completed needs cannot be assigned again")
+        if existing.get("assigned_volunteer_id") and existing.get("assigned_volunteer_id") != volunteer_id:
+            raise ValueError("Need is already assigned to another volunteer")
 
         updated = dict(existing)
         updated["status"] = NeedStatus.assigned.value

@@ -61,11 +61,14 @@ async def assign_need(
     if not volunteer.availability:
         raise HTTPException(status_code=400, detail="Volunteer is not currently available")
 
-    need = await service.assign_need(
-        need_id=payload.need_id,
-        volunteer_id=payload.volunteer_id,
-        expected_revision=payload.expected_revision,
-    )
+    try:
+        need = await service.assign_need(
+            need_id=payload.need_id,
+            volunteer_id=payload.volunteer_id,
+            expected_revision=payload.expected_revision,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     await volunteer_service.assign_to_need(payload.volunteer_id, payload.need_id)
     return Envelope(data=need)
 
@@ -85,5 +88,8 @@ async def update_need_status(
         expected_revision=payload.expected_revision,
     )
     if need.status == NeedStatus.completed and need.assigned_volunteer_id:
-        await volunteer_service.release_from_need(need.assigned_volunteer_id)
+        await volunteer_service.release_from_need(
+            need.assigned_volunteer_id,
+            location=need.location.model_dump(),
+        )
     return Envelope(data=need)
