@@ -153,6 +153,28 @@ class NeedService:
         )
         return self._to_schema(saved)
 
+    async def update_need_status(
+        self,
+        need_id: str,
+        status: NeedStatus,
+        expected_revision: str | None = None,
+    ) -> NeedDocument:
+        """Update a need status while preserving the rest of the document."""
+
+        existing = await self.repository.get(need_id)
+        if not existing:
+            raise DocumentNotFoundError(f"Need {need_id} not found")
+
+        updated = dict(existing)
+        updated["status"] = status.value
+        updated["updated_at"] = utc_now().isoformat()
+        saved = await self.repository.save(
+            need_id,
+            updated,
+            expected_revision=expected_revision or existing.get("_rev"),
+        )
+        return self._to_schema(saved)
+
     async def prioritized_needs(
         self,
         reference_lat: float | None = None,

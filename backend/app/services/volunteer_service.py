@@ -8,6 +8,7 @@ from app.db.couchdb import DocumentNotFoundError
 from app.db.repositories.idempotency_repository import IdempotencyRepository
 from app.db.repositories.need_repository import NeedRepository
 from app.db.repositories.volunteer_repository import VolunteerRepository
+from app.core.security.rbac import Role
 from app.schemas.need import NeedDocument
 from app.schemas.volunteer import VolunteerCreate, VolunteerDocument, VolunteerMatch
 from app.utils.datetime import utc_now
@@ -55,9 +56,21 @@ class VolunteerService:
             "id": volunteer_id,
             "document_type": "volunteer",
             "name": payload.name,
+            "phone_number": payload.phone_number,
+            "whatsapp_number": payload.whatsapp_number,
+            "alternate_number": payload.alternate_number,
+            "gender": payload.gender,
+            "qualification": payload.qualification,
+            "designation": payload.designation,
+            "zone_id": payload.zone_id,
+            "camp_id": payload.camp_id,
+            "auth_role": payload.auth_role.value,
             "skills": payload.skills,
+            "notes": payload.notes,
             "location": payload.location.model_dump(),
             "availability": payload.availability,
+            "status": payload.status.value,
+            "current_assignment_need_id": existing.get("current_assignment_need_id") if existing else None,
             "created_at": existing.get("created_at", now.isoformat()) if existing else now.isoformat(),
             "updated_at": now.isoformat(),
         }
@@ -128,6 +141,83 @@ class VolunteerService:
         if not document:
             raise DocumentNotFoundError(f"Volunteer {volunteer_id} not found")
         return self._to_schema(document)
+
+    async def list_volunteers(
+        self,
+        zone_id: str | None = None,
+        camp_id: str | None = None,
+    ) -> list[VolunteerDocument]:
+        """List volunteers with optional zone and camp filters."""
+
+        documents = [self._to_schema(doc) for doc in await self.volunteer_repository.list()]
+        if zone_id is not None:
+            documents = [document for document in documents if document.zone_id == zone_id]
+        if camp_id is not None:
+            documents = [document for document in documents if document.camp_id == camp_id]
+        return documents
+
+    async def update_auth_role(
+        self,
+        volunteer_id: str,
+        auth_role: Role,
+    ) -> VolunteerDocument:
+        """Update the login role granted to a volunteer profile."""
+
+        existing = await self.volunteer_repository.get(volunteer_id)
+        if not existing:
+            raise DocumentNotFoundError(f"Volunteer {volunteer_id} not found")
+
+        updated = dict(existing)
+        updated["auth_role"] = auth_role.value
+        updated["updated_at"] = utc_now().isoformat()
+        saved = await self.volunteer_repository.save(
+            volunteer_id,
+            updated,
+            expected_revision=existing.get("_rev"),
+        )
+        return self._to_schema(saved)
+
+    async def assign_to_need(
+        self,
+        volunteer_id: str,
+        need_id: str,
+    ) -> VolunteerDocument:
+        """Mark a volunteer as assigned to a live need."""
+
+        existing = await self.volunteer_repository.get(volunteer_id)
+        if not existing:
+            raise DocumentNotFoundError(f"Volunteer {volunteer_id} not found")
+
+        updated = dict(existing)
+        updated["availability"] = False
+        updated["status"] = "assigned"
+        updated["current_assignment_need_id"] = need_id
+        updated["updated_at"] = utc_now().isoformat()
+        saved = await self.volunteer_repository.save(
+            volunteer_id,
+            updated,
+            expected_revision=existing.get("_rev"),
+        )
+        return self._to_schema(saved)
+
+    async def release_from_need(self, volunteer_id: str) -> VolunteerDocument:
+        """Mark a volunteer as available after a need is completed."""
+
+        existing = await self.volunteer_repository.get(volunteer_id)
+        if not existing:
+            raise DocumentNotFoundError(f"Volunteer {volunteer_id} not found")
+
+        updated = dict(existing)
+        updated["availability"] = True
+        updated["status"] = "available"
+        updated["current_assignment_need_id"] = None
+        updated["updated_at"] = utc_now().isoformat()
+        saved = await self.volunteer_repository.save(
+            volunteer_id,
+            updated,
+            expected_revision=existing.get("_rev"),
+        )
+        return self._to_schema(saved)
 
     def _to_schema(self, document: dict) -> VolunteerDocument:
         payload = dict(document)

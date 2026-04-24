@@ -74,13 +74,19 @@ Notes:
 From the `backend/` directory:
 
 ```bash
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 The app will be available locally on:
 
 ```text
 http://127.0.0.1:8000
+```
+
+For testing from a phone or another device on the same Wi-Fi, use your computer's LAN IP, for example:
+
+```text
+http://192.168.0.173:8000
 ```
 
 ## Start ngrok

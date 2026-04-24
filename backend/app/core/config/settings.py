@@ -45,6 +45,19 @@ class Settings(BaseSettings):
     rate_limit_max_requests: int = 120
 
     request_timeout_seconds: float = 10.0
+    cors_allow_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://localhost",
+            "http://127.0.0.1",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:5000",
+            "http://127.0.0.1:5000",
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+        ]
+    )
+    cors_allow_origin_regex: str = r"https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 
 
 @lru_cache(maxsize=1)

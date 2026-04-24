@@ -22,6 +22,13 @@ class AssignmentRequest(BaseModel):
     expected_revision: str | None = None
 
 
+class NeedStatusUpdateRequest(BaseModel):
+    """Update the lifecycle status of a need."""
+
+    status: str
+    expected_revision: str | None = None
+
+
 class MatchRequest(BaseModel):
     """Request matching volunteers for a need."""
 
@@ -35,6 +42,14 @@ class WhatsAppWebhookRequest(BaseModel):
     raw_text_message: str = Field(min_length=3, max_length=2000)
     sender_name: str | None = None
     sender_phone: str | None = None
+
+
+class DebugAITriageRequest(BaseModel):
+    """Direct AI triage request for local debugging and Postman use."""
+
+    raw_text: str = Field(min_length=3, max_length=4000)
+    source: str = Field(default="WHATSAPP", min_length=3, max_length=32)
+    connectivity_available: bool = True
 
 
 class WebhookParseResult(BaseModel):
@@ -52,6 +67,7 @@ class WebhookParseResult(BaseModel):
     priority: int | None = None
     disaster_type: str | None = None
     needs: list[str] = Field(default_factory=list)
+    affected_count: int | None = None
     vulnerable_groups: list[str] = Field(default_factory=list)
     language: str | None = None
     route: str | None = None
@@ -61,6 +77,14 @@ class WebhookParseResult(BaseModel):
     requires_follow_up: bool = False
     pending_cloud_processing: bool = False
     processing_ms: int | None = None
+
+
+class DebugAITriageResponse(BaseModel):
+    """Response payload for direct AI triage debugging."""
+
+    source: str
+    pipeline: dict[str, object]
+    parsed: WebhookParseResult
 
 
 class HealthResponse(BaseModel):

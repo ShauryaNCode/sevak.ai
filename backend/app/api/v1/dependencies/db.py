@@ -7,6 +7,7 @@ from fastapi import Depends, Request
 from app.core.config.settings import Settings, get_settings
 from app.db.couchdb import AbstractDocumentStore
 from app.db.repositories.audit_log_repository import AuditLogRepository
+from app.db.repositories.camp_repository import CampRepository
 from app.db.repositories.idempotency_repository import IdempotencyRepository
 from app.db.repositories.inbound_message_repository import InboundMessageRepository
 from app.db.repositories.need_repository import NeedRepository
@@ -17,6 +18,7 @@ from app.integrations.whatsapp.client import WhatsAppClient
 from app.integrations.whatsapp.message_parser import WhatsAppProvider
 from app.schemas.communication import ProviderName
 from app.services.ai_triage_service import AITriageService
+from app.services.camp_service import CampService
 from app.services.communication_service import CommunicationService
 from app.services.need_service import NeedService
 from app.services.volunteer_service import VolunteerService
@@ -34,6 +36,14 @@ def get_need_repository(
     """Build a need repository."""
 
     return NeedRepository(store)
+
+
+def get_camp_repository(
+    store: AbstractDocumentStore = Depends(get_document_store),
+) -> CampRepository:
+    """Build a camp repository."""
+
+    return CampRepository(store)
 
 
 def get_volunteer_repository(
@@ -68,10 +78,10 @@ def get_audit_log_repository(
     return AuditLogRepository(store)
 
 
-def get_ai_triage_service() -> AITriageService:
-    """Return the rule-based parser service."""
+def get_ai_triage_service(request: Request) -> AITriageService:
+    """Return the initialized AI triage bridge."""
 
-    return AITriageService()
+    return request.app.state.ai_triage_service
 
 
 def get_whatsapp_provider(
@@ -107,6 +117,15 @@ def get_need_service(
     """Build a need service."""
 
     return NeedService(repository, idempotency_repository, settings)
+
+
+def get_camp_service(
+    repository: CampRepository = Depends(get_camp_repository),
+    idempotency_repository: IdempotencyRepository = Depends(get_idempotency_repository),
+) -> CampService:
+    """Build a camp service."""
+
+    return CampService(repository, idempotency_repository)
 
 
 def get_volunteer_service(

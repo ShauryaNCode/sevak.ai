@@ -40,7 +40,23 @@ class AITriageService:
     }
 
     def __init__(self) -> None:
+        self.pipeline_root = self._resolve_pipeline_root()
         self.pipeline = self._load_pipeline()
+
+    @property
+    def is_available(self) -> bool:
+        """Whether the standalone ai-pipeline was loaded successfully."""
+
+        return self.pipeline is not None
+
+    def health_snapshot(self) -> dict[str, Any]:
+        """Return a lightweight integration snapshot for diagnostics."""
+
+        return {
+            "available": self.is_available,
+            "pipeline_root": str(self.pipeline_root),
+            "pipeline_class": type(self.pipeline).__name__ if self.pipeline is not None else None,
+        }
 
     def parse_message(self, raw_text: str) -> WebhookParseResult:
         """Backward-compatible parser for callers that do not pass channel metadata."""
@@ -62,6 +78,64 @@ class AITriageService:
         """Backward-compatible wrapper for SMS parsing."""
 
         return self._parse_with_pipeline(raw_text, source="SMS")
+
+    def debug_parse_text(
+        self,
+        raw_text: str,
+        source: str = "WHATSAPP",
+        connectivity_available: bool = True,
+    ) -> WebhookParseResult:
+        """Parse arbitrary raw text through the same ai-pipeline bridge."""
+
+        if self.pipeline is None:
+            raise RuntimeError("AI pipeline could not be initialized")
+
+        triaged = self.pipeline.process_text(
+            body=raw_text,
+            source=source,
+            connectivity_available=connectivity_available,
+        )
+
+        location = triaged.location_resolved
+        location_name = None
+        pincode = None
+        lat = None
+        lng = None
+        if location is not None:
+            location_name = location.landmark or (location.raw.title() if location.raw else None)
+            pincode = location.pincode
+            lat = location.lat
+            lng = location.lng
+        elif triaged.location_raw:
+            location_name = triaged.location_raw.title()
+
+        return WebhookParseResult(
+            need_type=self._select_primary_need_type(list(triaged.needs)),
+            urgency=self._map_priority_to_urgency(triaged.priority),
+            location_name=location_name,
+            pincode=pincode,
+            lat=lat,
+            lng=lng,
+            vulnerability_score=self._calculate_vulnerability_score(
+                vulnerable_groups=triaged.vulnerable_groups,
+                affected_count=triaged.affected_count,
+            ),
+            confidence=triaged.confidence,
+            intent=triaged.intent.value,
+            priority=triaged.priority,
+            disaster_type=triaged.disaster_type.value,
+            needs=list(triaged.needs),
+            affected_count=triaged.affected_count,
+            vulnerable_groups=list(triaged.vulnerable_groups),
+            language=triaged.language,
+            route=triaged.route.value,
+            summary=triaged.summary,
+            ai_model=triaged.ai_model,
+            ai_prompt_version=triaged.ai_prompt_version,
+            requires_follow_up=triaged.requires_follow_up,
+            pending_cloud_processing=triaged.pending_cloud_processing,
+            processing_ms=triaged.processing_ms,
+        )
 
     def build_message_fingerprint(self, sender_number: str | None, raw_text: str) -> str:
         """Create a deterministic fingerprint for deduplication."""
@@ -118,6 +192,7 @@ class AITriageService:
             priority=triaged.priority,
             disaster_type=triaged.disaster_type.value,
             needs=needs,
+            affected_count=triaged.affected_count,
             vulnerable_groups=list(triaged.vulnerable_groups),
             language=triaged.language,
             route=triaged.route.value,
@@ -156,12 +231,11 @@ class AITriageService:
         return min(score, 1.0)
 
     def _load_pipeline(self) -> Any:
-        pipeline_root = self._resolve_pipeline_root()
-        if not pipeline_root.exists():
-            logger.error("Configured ai-pipeline path does not exist: %s", pipeline_root)
+        if not self.pipeline_root.exists():
+            logger.error("Configured ai-pipeline path does not exist: %s", self.pipeline_root)
             return None
 
-        pipeline_root_str = str(pipeline_root)
+        pipeline_root_str = str(self.pipeline_root)
         if pipeline_root_str not in sys.path:
             sys.path.insert(0, pipeline_root_str)
 
@@ -172,7 +246,7 @@ class AITriageService:
             return None
 
         module_file = Path(getattr(pipeline_module, "__file__", "")).resolve()
-        if module_file.parent != pipeline_root.resolve():
+        if module_file.parent != self.pipeline_root.resolve():
             logger.error("Imported unexpected pipeline module from %s", module_file)
             return None
 

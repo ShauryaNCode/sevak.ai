@@ -5,8 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
 from app.api.v1.dependencies.db import get_need_service, get_volunteer_service
-from app.schemas.common import AssignmentRequest, Envelope
-from app.schemas.need import NeedCreate, NeedDocument, NeedPriorityItem
+from app.schemas.common import AssignmentRequest, Envelope, NeedStatusUpdateRequest
+from app.schemas.need import NeedCreate, NeedDocument, NeedPriorityItem, NeedStatus
 from app.services.need_service import NeedService
 from app.services.volunteer_service import VolunteerService
 
@@ -61,10 +61,29 @@ async def assign_need(
     if not volunteer.availability:
         raise HTTPException(status_code=400, detail="Volunteer is not currently available")
 
-    return Envelope(
-        data=await service.assign_need(
-            need_id=payload.need_id,
-            volunteer_id=payload.volunteer_id,
-            expected_revision=payload.expected_revision,
-        )
+    need = await service.assign_need(
+        need_id=payload.need_id,
+        volunteer_id=payload.volunteer_id,
+        expected_revision=payload.expected_revision,
     )
+    await volunteer_service.assign_to_need(payload.volunteer_id, payload.need_id)
+    return Envelope(data=need)
+
+
+@router.patch("/{need_id}/status", response_model=Envelope[NeedDocument])
+async def update_need_status(
+    need_id: str,
+    payload: NeedStatusUpdateRequest,
+    service: NeedService = Depends(get_need_service),
+    volunteer_service: VolunteerService = Depends(get_volunteer_service),
+) -> Envelope[NeedDocument]:
+    """Update the lifecycle status of a need."""
+
+    need = await service.update_need_status(
+        need_id=need_id,
+        status=NeedStatus(payload.status),
+        expected_revision=payload.expected_revision,
+    )
+    if need.status == NeedStatus.completed and need.assigned_volunteer_id:
+        await volunteer_service.release_from_need(need.assigned_volunteer_id)
+    return Envelope(data=need)

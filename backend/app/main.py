@@ -6,6 +6,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
@@ -21,6 +22,8 @@ from app.db.couchdb import (
     JsonDocumentStore,
     build_document_store,
 )
+from app.services.ai_triage_service import AITriageService
+from app.schemas.common import DebugAITriageRequest, DebugAITriageResponse
 from app.utils.datetime import utc_now
 
 
@@ -43,6 +46,7 @@ async def lifespan(app: FastAPI):
 
     app.state.settings = settings
     app.state.document_store = document_store
+    app.state.ai_triage_service = AITriageService()
     app.state.last_webhook_payload = None
     logger.info("Application startup complete")
     yield
@@ -71,6 +75,14 @@ def create_application() -> FastAPI:
         description="Offline-first disaster response backend",
         lifespan=lifespan,
     )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allow_origins,
+        allow_origin_regex=settings.cors_allow_origin_regex,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(
         RateLimitMiddleware,
@@ -91,6 +103,7 @@ def create_application() -> FastAPI:
             content={
                 "status": "ok",
                 "storage_backend": store.backend_name,
+                "ai_pipeline": request.app.state.ai_triage_service.health_snapshot(),
                 "timestamp": utc_now().isoformat(),
                 "public_base_url": public_base_url,
                 "webhook_paths": {
@@ -110,6 +123,23 @@ def create_application() -> FastAPI:
         return JSONResponse(
             status_code=200 if payload is not None else 404,
             content=payload or {"detail": "No webhook received yet."},
+        )
+
+    @app.post("/debug/ai-triage", response_model=DebugAITriageResponse)
+    async def debug_ai_triage(
+        payload: DebugAITriageRequest,
+        request: Request,
+    ) -> DebugAITriageResponse:
+        triage_service: AITriageService = request.app.state.ai_triage_service
+        parsed = triage_service.debug_parse_text(
+            raw_text=payload.raw_text,
+            source=payload.source.upper(),
+            connectivity_available=payload.connectivity_available,
+        )
+        return DebugAITriageResponse(
+            source=payload.source.upper(),
+            pipeline=triage_service.health_snapshot(),
+            parsed=parsed,
         )
 
     return app

@@ -67,6 +67,11 @@ class NeedBase(BaseModel):
     need_type: NeedType
     urgency: UrgencyLevel
     contact_info: ContactInfo
+    camp_id: str | None = None
+    title: str | None = Field(default=None, max_length=160)
+    description: str | None = Field(default=None, max_length=1000)
+    affected_count: int = Field(default=1, ge=1, le=100000)
+    source: str = Field(default="APP", max_length=32)
     vulnerability_score: float = Field(default=0.5, ge=0.0, le=1.0)
     dedup_hash: str | None = None
 

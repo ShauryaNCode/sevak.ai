@@ -117,6 +117,10 @@ class CommunicationService:
             ),
             need_type=NeedType(parsed.need_type),
             urgency=UrgencyLevel(parsed.urgency or "medium"),
+            title=parsed.summary or f"{parsed.need_type.title()} support needed",
+            description=inbound.raw_text,
+            affected_count=parsed.affected_count or 1,
+            source=inbound.channel.value.upper(),
             vulnerability_score=parsed.vulnerability_score,
             dedup_hash=inbound.dedup_hash,
             contact_info=ContactInfo(
