@@ -75,7 +75,23 @@ class CommunicationService:
                     "need": existing_need.model_dump(mode="json"),
                 }
 
-        parsed = self.triage_service.parse_message(inbound.raw_text)
+        parsed = self.triage_service.parse_inbound_message(inbound)
+        if parsed.intent and parsed.intent.upper() != "NEED":
+            await self._store_inbound_record(inbound=inbound, status=ProcessingStatus.ignored)
+            await self._audit_event(
+                inbound,
+                "inbound_message_ignored",
+                {"reason": f"Intent {parsed.intent} is not currently converted into a need"},
+            )
+            return {
+                "inbound_message": inbound.model_dump(mode="json"),
+                "dedup_hash": inbound.dedup_hash,
+                "parsed": parsed.model_dump(mode="json"),
+                "stored": False,
+                "duplicate": False,
+                "reason": f"Intent {parsed.intent} is not currently converted into a need",
+            }
+
         if not parsed.need_type:
             await self._store_inbound_record(inbound=inbound, status=ProcessingStatus.ignored)
             await self._audit_event(

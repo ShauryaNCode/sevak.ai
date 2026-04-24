@@ -48,6 +48,19 @@ class WebhookParseResult(BaseModel):
     lng: float | None = None
     vulnerability_score: float = Field(default=0.5, ge=0.0, le=1.0)
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    intent: str | None = None
+    priority: int | None = None
+    disaster_type: str | None = None
+    needs: list[str] = Field(default_factory=list)
+    vulnerable_groups: list[str] = Field(default_factory=list)
+    language: str | None = None
+    route: str | None = None
+    summary: str | None = None
+    ai_model: str | None = None
+    ai_prompt_version: str | None = None
+    requires_follow_up: bool = False
+    pending_cloud_processing: bool = False
+    processing_ms: int | None = None
 
 
 class HealthResponse(BaseModel):

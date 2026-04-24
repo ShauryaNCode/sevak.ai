@@ -17,6 +17,7 @@ class NeedType(str, Enum):
     food = "food"
     water = "water"
     shelter = "shelter"
+    rescue = "rescue"
 
 
 class UrgencyLevel(str, Enum):

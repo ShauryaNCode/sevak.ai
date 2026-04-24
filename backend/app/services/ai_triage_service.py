@@ -1,79 +1,67 @@
-"""Rule-based AI-ready triage helpers."""
+"""Bridge backend webhook ingestion to the standalone ai-pipeline package."""
 
 from __future__ import annotations
 
 import hashlib
-import re
+import importlib
+import logging
+import os
+import sys
+from pathlib import Path
+from typing import Any
 
+from app.schemas.communication import ChannelName, InboundMessage
 from app.schemas.common import WebhookParseResult
 
 
-class AITriageService:
-    """Rule-based parser that can later be replaced by richer AI pipelines."""
+logger = logging.getLogger(__name__)
 
-    KNOWN_ZONE_COORDINATES = {
-        "sangli": {"lat": 16.8524, "lng": 74.5815, "pincode": "416416"},
-        "sangli community center": {"lat": 16.8602, "lng": 74.5754, "pincode": "416416"},
-        "kolhapur": {"lat": 16.7050, "lng": 74.2433, "pincode": "416003"},
-        "kolhapur bus stand": {"lat": 16.7048, "lng": 74.2439, "pincode": "416003"},
-        "satara": {"lat": 17.6805, "lng": 74.0183, "pincode": "415001"},
-        "miraj": {"lat": 16.8221, "lng": 74.6429, "pincode": "416410"},
-        "islampur": {"lat": 17.0380, "lng": 74.2691, "pincode": "415409"},
+
+class AITriageService:
+    """Thin adapter that lets the backend consume the ai-pipeline output."""
+
+    NEED_PRIORITY = [
+        "RESCUE",
+        "MEDICAL",
+        "WATER",
+        "FOOD",
+        "SHELTER",
+        "CLOTHING",
+        "SANITATION",
+    ]
+    NEED_TYPE_MAP = {
+        "RESCUE": "rescue",
+        "MEDICAL": "medical",
+        "FOOD": "food",
+        "WATER": "water",
+        "SHELTER": "shelter",
+        "CLOTHING": "shelter",
+        "SANITATION": "water",
     }
-    NEED_TYPE_KEYWORDS = {
-        "medical": {"medical", "medicine", "doctor", "ambulance"},
-        "food": {"food", "meal", "ration", "hungry"},
-        "water": {"water", "drinking water", "thirsty"},
-        "shelter": {"shelter", "tent", "roof", "home"},
-    }
-    URGENCY_KEYWORDS = {
-        "high": {"urgent", "immediately", "asap", "emergency"},
-        "medium": {"soon", "needed"},
-        "low": {"whenever"},
-    }
+
+    def __init__(self) -> None:
+        self.pipeline = self._load_pipeline()
 
     def parse_message(self, raw_text: str) -> WebhookParseResult:
-        """Convert a raw inbound message into a structured triage result."""
+        """Backward-compatible parser for callers that do not pass channel metadata."""
 
-        lowered = raw_text.strip().lower()
-        need_type = self._match_keyword(lowered, self.NEED_TYPE_KEYWORDS)
-        urgency = self._match_keyword(lowered, self.URGENCY_KEYWORDS) or "medium"
-        pincode_match = re.search(r"\b\d{6}\b", lowered)
-        location_name = self._extract_location_name(lowered)
-        location_match = self._resolve_location(location_name or lowered)
+        return self._parse_with_pipeline(raw_text, source="WHATSAPP")
 
-        vulnerability_score = 0.5
-        if any(token in lowered for token in ("child", "elderly", "pregnant", "disabled")):
-            vulnerability_score = 0.9
+    def parse_inbound_message(self, inbound: InboundMessage) -> WebhookParseResult:
+        """Parse an inbound backend message using the ai-pipeline."""
 
-        confidence = 0.2
-        if need_type:
-            confidence += 0.4
-        if location_name or pincode_match:
-            confidence += 0.2
-        if urgency:
-            confidence += 0.2
-
-        return WebhookParseResult(
-            need_type=need_type,
-            urgency=urgency,
-            location_name=(location_name or location_match.get("label")) if location_match else location_name,
-            pincode=pincode_match.group(0) if pincode_match else (location_match.get("pincode") if location_match else None),
-            lat=location_match.get("lat") if location_match else None,
-            lng=location_match.get("lng") if location_match else None,
-            vulnerability_score=vulnerability_score,
-            confidence=min(confidence, 1.0),
-        )
+        source = "SMS" if inbound.channel == ChannelName.sms else "WHATSAPP"
+        return self._parse_with_pipeline(inbound.raw_text, source=source)
 
     def parse_whatsapp_message(self, raw_text: str) -> WebhookParseResult:
         """Backward-compatible wrapper for WhatsApp parsing."""
 
-        return self.parse_message(raw_text)
+        return self._parse_with_pipeline(raw_text, source="WHATSAPP")
 
     def parse_sms_message(self, raw_text: str) -> WebhookParseResult:
         """Backward-compatible wrapper for SMS parsing."""
 
-        return self.parse_message(raw_text)
+        return self._parse_with_pipeline(raw_text, source="SMS")
 
     def build_message_fingerprint(self, sender_number: str | None, raw_text: str) -> str:
         """Create a deterministic fingerprint for deduplication."""
@@ -90,38 +78,114 @@ class AITriageService:
             normalized_sender = normalized_sender.split(":", maxsplit=1)[1]
         return normalized_sender
 
-    def _match_keyword(self, text: str, keyword_map: dict[str, set[str]]) -> str | None:
-        for label, keywords in keyword_map.items():
-            if any(keyword in text for keyword in keywords):
-                return label
+    def _parse_with_pipeline(self, raw_text: str, source: str) -> WebhookParseResult:
+        if self.pipeline is None:
+            raise RuntimeError("AI pipeline could not be initialized")
+
+        triaged = self.pipeline.process_text(
+            body=raw_text,
+            source=source,
+            connectivity_available=True,
+        )
+
+        location = triaged.location_resolved
+        needs = list(triaged.needs)
+        location_name = None
+        pincode = None
+        lat = None
+        lng = None
+        if location is not None:
+            location_name = location.landmark or (location.raw.title() if location.raw else None)
+            pincode = location.pincode
+            lat = location.lat
+            lng = location.lng
+        elif triaged.location_raw:
+            location_name = triaged.location_raw.title()
+
+        return WebhookParseResult(
+            need_type=self._select_primary_need_type(needs),
+            urgency=self._map_priority_to_urgency(triaged.priority),
+            location_name=location_name,
+            pincode=pincode,
+            lat=lat,
+            lng=lng,
+            vulnerability_score=self._calculate_vulnerability_score(
+                vulnerable_groups=triaged.vulnerable_groups,
+                affected_count=triaged.affected_count,
+            ),
+            confidence=triaged.confidence,
+            intent=triaged.intent.value,
+            priority=triaged.priority,
+            disaster_type=triaged.disaster_type.value,
+            needs=needs,
+            vulnerable_groups=list(triaged.vulnerable_groups),
+            language=triaged.language,
+            route=triaged.route.value,
+            summary=triaged.summary,
+            ai_model=triaged.ai_model,
+            ai_prompt_version=triaged.ai_prompt_version,
+            requires_follow_up=triaged.requires_follow_up,
+            pending_cloud_processing=triaged.pending_cloud_processing,
+            processing_ms=triaged.processing_ms,
+        )
+
+    def _select_primary_need_type(self, needs: list[str]) -> str | None:
+        for need in self.NEED_PRIORITY:
+            if need in needs:
+                return self.NEED_TYPE_MAP[need]
         return None
 
-    def _extract_location_name(self, text: str) -> str | None:
-        patterns = [
-            r"\bin\s+([a-zA-Z\s]+?)(?:\s+(?:urgent|immediately|asap|please|help)|$)",
-            r"\bat\s+([a-zA-Z\s]+?)(?:\s+(?:urgent|immediately|asap|please|help)|$)",
-            r"\bnear\s+([a-zA-Z\s]+?)(?:\s+(?:urgent|immediately|asap|please|help)|$)",
-        ]
-        for pattern in patterns:
-            match = re.search(pattern, text, flags=re.IGNORECASE)
-            if match:
-                return match.group(1).strip().title()
-        return None
+    def _map_priority_to_urgency(self, priority: int) -> str:
+        if priority >= 4:
+            return "high"
+        if priority >= 2:
+            return "medium"
+        return "low"
 
-    def _resolve_location(self, text: str) -> dict[str, str | float] | None:
-        normalized_text = text.strip().lower()
-        if not normalized_text:
+    def _calculate_vulnerability_score(
+        self,
+        vulnerable_groups: list[str],
+        affected_count: int | None,
+    ) -> float:
+        score = 0.5
+        score += min(0.3, 0.12 * len(vulnerable_groups))
+        if affected_count is not None and affected_count >= 10:
+            score += 0.1
+        if affected_count is not None and affected_count >= 50:
+            score += 0.1
+        return min(score, 1.0)
+
+    def _load_pipeline(self) -> Any:
+        pipeline_root = self._resolve_pipeline_root()
+        if not pipeline_root.exists():
+            logger.error("Configured ai-pipeline path does not exist: %s", pipeline_root)
             return None
 
-        if normalized_text in self.KNOWN_ZONE_COORDINATES:
-            mapped = dict(self.KNOWN_ZONE_COORDINATES[normalized_text])
-            mapped["label"] = normalized_text.title()
-            return mapped
+        pipeline_root_str = str(pipeline_root)
+        if pipeline_root_str not in sys.path:
+            sys.path.insert(0, pipeline_root_str)
 
-        for keyword, coordinates in self.KNOWN_ZONE_COORDINATES.items():
-            if keyword in normalized_text:
-                mapped = dict(coordinates)
-                mapped["label"] = keyword.title()
-                return mapped
+        try:
+            pipeline_module = importlib.import_module("pipeline")
+        except Exception:
+            logger.exception("Unable to import ai-pipeline")
+            return None
 
-        return None
+        module_file = Path(getattr(pipeline_module, "__file__", "")).resolve()
+        if module_file.parent != pipeline_root.resolve():
+            logger.error("Imported unexpected pipeline module from %s", module_file)
+            return None
+
+        pipeline_class = getattr(pipeline_module, "TriagePipeline", None)
+        if pipeline_class is None:
+            logger.error("TriagePipeline class not found in ai-pipeline")
+            return None
+        return pipeline_class()
+
+    def _resolve_pipeline_root(self) -> Path:
+        configured_path = os.getenv("SEVAK_AI_PIPELINE_PATH")
+        if configured_path:
+            return Path(configured_path).resolve()
+
+        repo_root = Path(__file__).resolve().parents[3]
+        return repo_root / "ai-pipeline"
