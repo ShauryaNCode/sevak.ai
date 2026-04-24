@@ -187,7 +187,7 @@ async def test_sms_mock_webhook_uses_same_pipeline(client) -> None:
     """Verify SMS mock payloads flow through the shared ingestion path."""
 
     response = await client.post(
-        "/api/v1/webhook/sms",
+        "/webhook/sms",
         json={
             "From": "+919876543210",
             "Body": "Need food in Solapur urgent",
@@ -202,6 +202,32 @@ async def test_sms_mock_webhook_uses_same_pipeline(client) -> None:
     assert body["inbound_message"]["provider"] == "mock"
     assert body["inbound_message"]["provider_message_id"] == "SM123456"
     assert body["need"]["need_type"] == "food"
+
+
+async def test_sms_form_encoded_postman_style_payload_and_debug_endpoint(client) -> None:
+    """Verify SMS can be simulated from Postman using form fields and debug output."""
+
+    response = await client.post(
+        "/webhook/sms",
+        data={
+            "From": "+919812345678",
+            "Body": "Need water in Sangli urgent",
+            "MessageSid": "SM-POSTMAN-001",
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["stored"] is True
+    assert body["inbound_message"]["channel"] == "sms"
+    assert body["inbound_message"]["provider_message_id"] == "SM-POSTMAN-001"
+
+    debug_response = await client.get("/debug/webhook-last")
+    assert debug_response.status_code == 200
+    debug_payload = debug_response.json()
+    assert debug_payload["channel"] == "sms"
+    assert debug_payload["path"] == "/webhook/sms"
+    assert debug_payload["payload"]["MessageSid"] == "SM-POSTMAN-001"
 
 
 async def test_whatsapp_unparsed_message_does_not_create_need(client) -> None:

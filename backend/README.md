@@ -149,7 +149,7 @@ Expected flow:
 
 ## SMS Simulation
 
-SMS is mock-first but shaped like a real provider.
+SMS is mock-first but intentionally shaped like a real provider so you can demo it from Postman under the free tier.
 
 POST to:
 
@@ -157,12 +157,36 @@ POST to:
 /webhook/sms
 ```
 
-Example payload:
+### Recommended Postman flow
+
+Create a `POST` request to:
+
+```text
+http://127.0.0.1:8000/webhook/sms
+```
+
+In Postman:
+
+1. Select `Body`
+2. Choose `x-www-form-urlencoded`
+3. Add these keys:
+
+```text
+From       +919876543210
+Body       Need food in Solapur urgent
+MessageSid SM123
+```
+
+This mirrors the same provider-style field names used by Twilio webhooks, so the SMS simulation feels like WhatsApp sandbox testing even though it stays fully local and free.
+
+### JSON option
+
+If you prefer raw JSON, this also works:
 
 ```json
 {
   "From": "+919876543210",
-  "Body": "Need food urgent",
+  "Body": "Need food in Solapur urgent",
   "MessageSid": "SM123"
 }
 ```
@@ -174,14 +198,17 @@ Invoke-RestMethod `
   -Uri "http://127.0.0.1:8000/webhook/sms" `
   -Method Post `
   -ContentType "application/json" `
-  -Body '{"From":"+919876543210","Body":"Need food urgent","MessageSid":"SM123"}'
+  -Body '{"From":"+919876543210","Body":"Need food in Solapur urgent","MessageSid":"SM123"}'
 ```
 
-This flows through the same backend pipeline as WhatsApp:
-- normalize inbound message
-- deduplicate
-- parse
-- create need
+### Expected SMS flow
+
+- Postman sends payload to `/webhook/sms`
+- Backend normalizes it into the same canonical inbound message model used by WhatsApp
+- Deduplication and audit logging run
+- Parser extracts need fields
+- Need is created and visible in `GET /api/v1/needs`
+- Last payload is visible in `GET /debug/webhook-last`
 
 ## Health and Debug Endpoints
 
