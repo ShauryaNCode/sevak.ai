@@ -1,0 +1,8 @@
+{"source":"WHATSAPP","body":"Need water in Sangli urgent","expected":{"intent":"NEED","priority":4,"needs":["WATER"],"location_contains":"sangli"}}
+{"source":"SMS","body":"Bhai 50 log phase gaye hai, khana nahi hai, 3 baache hain, paani bhar gaya near Lal Chowk urgent","expected":{"intent":"NEED","priority":5,"needs":["FOOD","RESCUE"],"location_contains":"lal chowk"}}
+{"source":"WHATSAPP","body":"Doctor available in Solapur camp for 20 patients","expected":{"intent":"OFFER","priority":2,"needs":["MEDICAL","SHELTER"],"location_contains":"solapur"}}
+{"source":"SMS","body":"Relief camp reached and food distribution completed in Miraj","expected":{"intent":"STATUS","priority":1,"needs":["FOOD","SHELTER"],"location_contains":"miraj"}}
+{"source":"WHATSAPP","body":"hello just testing","expected":{"intent":"NOISE","priority":1,"needs":[],"location_contains":null}}
+{"source":"WHATSAPP","body":"Fire near Kolhapur bus stand, elderly people trapped, need ambulance now","expected":{"intent":"NEED","priority":5,"needs":["MEDICAL","RESCUE"],"location_contains":"kolhapur bus stand"}}
+{"source":"VOICE_TRANSCRIPT","body":"Need shelter and blankets for 12 families in Wayanad after landslide","expected":{"intent":"NEED","priority":5,"needs":["SHELTER"],"location_contains":"wayanad"}}
+{"source":"SMS","body":"We can send 5 boats to Sangli flood zone immediately","expected":{"intent":"OFFER","priority":4,"needs":["RESCUE"],"location_contains":"sangli"}}
