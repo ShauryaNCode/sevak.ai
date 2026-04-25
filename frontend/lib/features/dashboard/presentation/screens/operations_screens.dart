@@ -759,6 +759,9 @@ class _VolunteersManagementBodyState extends State<_VolunteersManagementBody> {
                               '${volunteer['designation'] ?? 'Volunteer'} · ${volunteer['qualification'] ?? 'General'} · ${volunteer['camp_id'] ?? 'Unassigned'}',
                           trailing:
                               '${volunteer['status'] ?? 'available'} | ${volunteer['auth_role'] ?? 'VOLUNTEER'}',
+                          secondaryActionLabel: 'Call',
+                          onSecondaryAction:
+                              () => _showVolunteerContactDialog(volunteer),
                           actionLabel: _updatingRole ? 'Updating...' : 'Manage',
                           onAction: _updatingRole
                               ? null
@@ -985,6 +988,53 @@ class _VolunteersManagementBodyState extends State<_VolunteersManagementBody> {
         setState(() => _updatingRole = false);
       }
     }
+  }
+
+  Future<void> _showVolunteerContactDialog(
+    Map<String, dynamic> volunteer,
+  ) async {
+    final String phoneNumber =
+        '${volunteer['phone_number'] ?? volunteer['whatsapp_number'] ?? volunteer['alternate_number'] ?? 'Not available'}';
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Call ${volunteer['name']}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'Volunteer number',
+                style: AppTextStyles.labelLarge.copyWith(
+                  color: AppColors.neutral600,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SelectableText(
+                phoneNumber,
+                style: AppTextStyles.titleMedium.copyWith(
+                  color: AppColors.neutral900,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Desktop browsers usually cannot place a normal phone call, so this shows the number for copy or dialling from another device.',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.neutral500,
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -2555,6 +2605,8 @@ class _ManagementTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.trailing,
+    this.secondaryActionLabel,
+    this.onSecondaryAction,
     this.actionLabel,
     this.onAction,
   });
@@ -2563,6 +2615,8 @@ class _ManagementTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final String trailing;
+  final String? secondaryActionLabel;
+  final VoidCallback? onSecondaryAction;
   final String? actionLabel;
   final VoidCallback? onAction;
 
@@ -2618,9 +2672,25 @@ class _ManagementTile extends StatelessWidget {
                   color: AppColors.neutral500,
                 ),
               ),
-              if (actionLabel != null) ...<Widget>[
+              if (secondaryActionLabel != null || actionLabel != null) ...<Widget>[
                 const SizedBox(height: AppSpacing.sm),
-                ElevatedButton(onPressed: onAction, child: Text(actionLabel!)),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  alignment: WrapAlignment.end,
+                  children: <Widget>[
+                    if (secondaryActionLabel != null)
+                      OutlinedButton(
+                        onPressed: onSecondaryAction,
+                        child: Text(secondaryActionLabel!),
+                      ),
+                    if (actionLabel != null)
+                      ElevatedButton(
+                        onPressed: onAction,
+                        child: Text(actionLabel!),
+                      ),
+                  ],
+                ),
               ],
             ],
           ),
