@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.api.v1.endpoints.webhooks import router as webhooks_router
+from app.api.demo import router as demo_router
 from app.core.config.settings import get_settings
 from app.core.logging.setup import configure_logging
 from app.core.middleware.error_handler import global_exception_handler
@@ -94,6 +95,7 @@ def create_application() -> FastAPI:
     app.add_exception_handler(DocumentConflictError, conflict_handler)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
     app.include_router(webhooks_router)
+    app.include_router(demo_router, prefix="/demo")
 
     @app.get("/health")
     async def health(request: Request) -> JSONResponse:
