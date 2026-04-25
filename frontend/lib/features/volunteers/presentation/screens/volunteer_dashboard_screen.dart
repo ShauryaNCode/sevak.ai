@@ -105,43 +105,95 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.neutral50,
+      backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
-        title: const Text('Volunteer Operations'),
+        backgroundColor: AppColors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        title: Row(
+          children: <Widget>[
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.primaryBlue,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: const Icon(Icons.volunteer_activism_rounded, color: AppColors.white, size: 18),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              'Volunteer Ops',
+              style: AppTextStyles.titleLarge.copyWith(color: AppColors.neutral900),
+            ),
+          ],
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: AppColors.neutral200),
+        ),
         actions: <Widget>[
           IconButton(
             onPressed: _load,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_rounded, color: AppColors.neutral600),
             tooltip: 'Refresh',
           ),
+          const SizedBox(width: AppSpacing.xs),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator.adaptive())
+          ? const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  CircularProgressIndicator.adaptive(),
+                  SizedBox(height: AppSpacing.md),
+                  Text('Loading operations...'),
+                ],
+              ),
+            )
           : ListView(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              padding: const EdgeInsets.all(AppSpacing.md),
               children: <Widget>[
                 if (_error != null) _ErrorBanner(message: _error!),
                 _SummaryPanel(
-                  title: 'Today',
-                  items: <String, String>{
-                    'Open needs': '${_needs.where((Map<String, dynamic> item) => '${item['status']}' != 'completed').length}',
-                    'Active camps': '${_camps.where((Map<String, dynamic> item) => '${item['status']}' == 'active').length}',
-                    'Available volunteers': '${_volunteers.where((Map<String, dynamic> item) => item['availability'] == true).length}',
-                  },
+                  items: <_StatItem>[
+                    _StatItem(
+                      label: 'Open Needs',
+                      value: '${_needs.where((Map<String, dynamic> item) => '${item['status']}' != 'completed').length}',
+                      icon: Icons.campaign_rounded,
+                      color: AppColors.dangerRed,
+                      bgColor: AppColors.dangerRedLight,
+                    ),
+                    _StatItem(
+                      label: 'Active Camps',
+                      value: '${_camps.where((Map<String, dynamic> item) => '${item['status']}' == 'active').length}',
+                      icon: Icons.location_city_rounded,
+                      color: AppColors.primaryBlue,
+                      bgColor: AppColors.primaryBlueLight,
+                    ),
+                    _StatItem(
+                      label: 'Available',
+                      value: '${_volunteers.where((Map<String, dynamic> item) => item['availability'] == true).length}',
+                      icon: Icons.people_rounded,
+                      color: AppColors.successGreen,
+                      bgColor: AppColors.successGreenLight,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: AppSpacing.lg),
+                const SizedBox(height: AppSpacing.md),
                 if (_volunteerProfileId == null) _buildRegistrationCard() else ...<Widget>[
                   _buildVolunteerStatusCard(),
-                  const SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: AppSpacing.md),
                   _buildProfileUpdateCard(),
-                  const SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: AppSpacing.md),
                   _buildNewNeedCard(),
                 ],
-                const SizedBox(height: AppSpacing.lg),
+                const SizedBox(height: AppSpacing.md),
                 _buildNeedsSection(),
-                const SizedBox(height: AppSpacing.lg),
+                const SizedBox(height: AppSpacing.md),
                 _buildCampsSection(),
+                const SizedBox(height: AppSpacing.lg),
               ],
             ),
     );
@@ -149,61 +201,60 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
 
   Widget _buildRegistrationCard() {
     return _SectionCard(
-      title: 'Complete Your Volunteer Profile',
-      subtitle: 'Your location is mandatory so the future heat map can still place you even when GPS is unavailable.',
+      title: 'Complete Volunteer Profile',
+      subtitle: 'Your location is mandatory so the heat map can place you even when GPS is unavailable.',
+      icon: Icons.app_registration_rounded,
+      iconColor: AppColors.primaryBlue,
       child: Form(
         key: _registrationFormKey,
         child: Column(
           children: <Widget>[
-            _buildTextField(_nameController, 'Full name', required: true),
+            _buildFormRow([
+              _buildTextField(_nameController, 'Full name', required: true),
+              _buildTextField(_whatsAppController, 'WhatsApp number', required: true),
+            ]),
             const SizedBox(height: AppSpacing.md),
-            _buildTextField(_whatsAppController, 'WhatsApp number', required: true),
+            _buildFormRow([
+              _buildTextField(_alternateController, 'Alternate number'),
+              _buildTextField(_genderController, 'Gender', required: true),
+            ]),
             const SizedBox(height: AppSpacing.md),
-            _buildTextField(_alternateController, 'Alternate number'),
-            const SizedBox(height: AppSpacing.md),
-            _buildTextField(_genderController, 'Gender', required: true),
-            const SizedBox(height: AppSpacing.md),
-            _buildTextField(_qualificationController, 'Qualification', required: true),
-            const SizedBox(height: AppSpacing.md),
-            _buildTextField(_designationController, 'Designation', required: true),
+            _buildFormRow([
+              _buildTextField(_qualificationController, 'Qualification', required: true),
+              _buildTextField(_designationController, 'Designation', required: true),
+            ]),
             const SizedBox(height: AppSpacing.md),
             _buildTextField(_skillsController, 'Skills (comma separated)'),
             const SizedBox(height: AppSpacing.md),
-            _buildTextField(_locationLabelController, 'Location / locality', required: true),
+            _buildFormRow([
+              _buildTextField(_locationLabelController, 'Location / locality', required: true),
+              _buildTextField(_pincodeController, 'Pincode'),
+            ]),
             const SizedBox(height: AppSpacing.md),
-            _buildTextField(_pincodeController, 'Pincode'),
-            const SizedBox(height: AppSpacing.md),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: _capturingProfileLocation ? null : _captureProfileLocation,
-                icon: const Icon(Icons.my_location_rounded),
-                label: Text(
-                  _capturingProfileLocation
-                      ? 'Fetching GPS...'
-                      : _profileLocation == null
-                          ? 'Use GPS Location'
-                          : 'GPS captured',
-                ),
-              ),
+            _GpsButton(
+              capturing: _capturingProfileLocation,
+              captured: _profileLocation != null,
+              capturedLabel: _profileLocation != null
+                  ? 'GPS ${_profileLocation!.latitude.toStringAsFixed(5)}, ${_profileLocation!.longitude.toStringAsFixed(5)}'
+                  : null,
+              idleLabel: 'Use GPS Location',
+              loadingLabel: 'Fetching GPS...',
+              capturedButtonLabel: 'GPS Captured',
+              onTap: _captureProfileLocation,
             ),
-            if (_profileLocation != null) ...<Widget>[
-              const SizedBox(height: AppSpacing.sm),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'GPS ${_profileLocation!.latitude.toStringAsFixed(5)}, ${_profileLocation!.longitude.toStringAsFixed(5)}',
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral600),
-                ),
-              ),
-            ],
             const SizedBox(height: AppSpacing.lg),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryBlue,
+                  foregroundColor: AppColors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                ),
                 onPressed: _submitting ? null : _registerVolunteer,
-                icon: const Icon(Icons.app_registration_rounded),
-                label: Text(_submitting ? 'Registering...' : 'Register Volunteer'),
+                icon: const Icon(Icons.app_registration_rounded, size: 18),
+                label: Text(_submitting ? 'Registering...' : 'Register as Volunteer'),
               ),
             ),
           ],
@@ -223,36 +274,101 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
       }
     }
 
-    return _SectionCard(
-      title: 'Your Volunteer Profile',
-      subtitle: 'You can accept only one live need at a time. Completing a need updates your map position to the need location and removes your camp assignment until a manager checks you back in.',
+    final bool onMission = _hasActiveAssignment;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: onMission
+              ? <Color>[const Color(0xFF1D4ED8), const Color(0xFF2563EB)]
+              : <Color>[const Color(0xFF1E3A5F), const Color(0xFF1D4ED8)],
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
-            profile == null ? widget.user.name : '${profile['name']}',
-            style: AppTextStyles.titleLarge.copyWith(color: AppColors.neutral900),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
+          Row(
             children: <Widget>[
-              _Pill(label: 'ID ${_volunteerProfileId ?? '-'}'),
-              _Pill(label: '${profile?['designation'] ?? 'Volunteer'}'),
-              _Pill(label: '${profile?['qualification'] ?? 'General'}'),
-              _Pill(label: _hasActiveAssignment ? 'On mission' : 'Available'),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(AppRadius.full),
+                ),
+                child: const Icon(Icons.person_rounded, color: AppColors.white, size: 22),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      profile == null ? widget.user.name : '${profile['name']}',
+                      style: AppTextStyles.titleLarge.copyWith(color: AppColors.white),
+                    ),
+                    Text(
+                      '${profile?['designation'] ?? 'Volunteer'} · ID $_volunteerProfileId',
+                      style: AppTextStyles.bodySmall.copyWith(color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: onMission ? AppColors.warningAmber : AppColors.successGreen,
+                  borderRadius: BorderRadius.circular(AppRadius.full),
+                ),
+                child: Text(
+                  onMission ? 'ON MISSION' : 'AVAILABLE',
+                  style: AppTextStyles.labelSmall.copyWith(color: AppColors.white),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          Text(
-            camp == null ? 'Camp: Unassigned' : 'Camp: ${camp['name']}',
-            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral600),
+          Container(
+            height: 1,
+            color: Colors.white.withOpacity(0.15),
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Current location: ${profile?['location']?['label'] ?? widget.user.zoneId}',
-            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral600),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: <Widget>[
+              const Icon(Icons.location_city_rounded, color: Colors.white70, size: 16),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  camp == null ? 'Camp: Unassigned' : 'Camp: ${camp['name']}',
+                  style: AppTextStyles.bodySmall.copyWith(color: Colors.white70),
+                ),
+              ),
+              const Icon(Icons.place_rounded, color: Colors.white70, size: 16),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  '${profile?['location']?['label'] ?? widget.user.zoneId}',
+                  style: AppTextStyles.bodySmall.copyWith(color: Colors.white70),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: <Widget>[
+              _WhitePill(label: '${profile?['qualification'] ?? 'General'}'),
+              if ((profile?['skills'] as List<dynamic>? ?? <dynamic>[]).isNotEmpty)
+                ...(profile!['skills'] as List<dynamic>)
+                    .take(3)
+                    .map((dynamic s) => _WhitePill(label: '$s')),
+            ],
           ),
         ],
       ),
@@ -262,43 +378,56 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
   Widget _buildProfileUpdateCard() {
     return _SectionCard(
       title: 'Update Profile',
-      subtitle: 'Keep your fallback location and contact details current so managers can place you correctly even when GPS fails.',
+      subtitle: 'Keep your location and contact details current so managers can place you correctly.',
+      icon: Icons.manage_accounts_rounded,
+      iconColor: AppColors.neutral600,
       child: Form(
         key: _profileFormKey,
         child: Column(
           children: <Widget>[
-            _buildTextField(_nameController, 'Full name', required: true),
+            _buildFormRow([
+              _buildTextField(_nameController, 'Full name', required: true),
+              _buildTextField(_whatsAppController, 'WhatsApp number', required: true),
+            ]),
             const SizedBox(height: AppSpacing.md),
-            _buildTextField(_whatsAppController, 'WhatsApp number', required: true),
+            _buildFormRow([
+              _buildTextField(_alternateController, 'Alternate number'),
+              _buildTextField(_genderController, 'Gender', required: true),
+            ]),
             const SizedBox(height: AppSpacing.md),
-            _buildTextField(_alternateController, 'Alternate number'),
-            const SizedBox(height: AppSpacing.md),
-            _buildTextField(_genderController, 'Gender', required: true),
-            const SizedBox(height: AppSpacing.md),
-            _buildTextField(_qualificationController, 'Qualification', required: true),
-            const SizedBox(height: AppSpacing.md),
-            _buildTextField(_designationController, 'Designation', required: true),
+            _buildFormRow([
+              _buildTextField(_qualificationController, 'Qualification', required: true),
+              _buildTextField(_designationController, 'Designation', required: true),
+            ]),
             const SizedBox(height: AppSpacing.md),
             _buildTextField(_skillsController, 'Skills (comma separated)'),
             const SizedBox(height: AppSpacing.md),
-            _buildTextField(_locationLabelController, 'Fallback location', required: true),
+            _buildFormRow([
+              _buildTextField(_locationLabelController, 'Fallback location', required: true),
+              _buildTextField(_pincodeController, 'Pincode'),
+            ]),
             const SizedBox(height: AppSpacing.md),
-            _buildTextField(_pincodeController, 'Pincode'),
-            const SizedBox(height: AppSpacing.md),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: _capturingProfileLocation ? null : _captureProfileLocation,
-                icon: const Icon(Icons.gps_fixed_rounded),
-                label: Text(_capturingProfileLocation ? 'Refreshing GPS...' : 'Update with GPS'),
-              ),
+            _GpsButton(
+              capturing: _capturingProfileLocation,
+              captured: _profileLocation != null,
+              capturedLabel: null,
+              idleLabel: 'Update with GPS',
+              loadingLabel: 'Refreshing GPS...',
+              capturedButtonLabel: 'GPS Updated',
+              onTap: _captureProfileLocation,
             ),
             const SizedBox(height: AppSpacing.lg),
             Align(
               alignment: Alignment.centerLeft,
               child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryBlue,
+                  foregroundColor: AppColors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                ),
                 onPressed: _updatingProfile ? null : _updateProfile,
-                icon: const Icon(Icons.save_rounded),
+                icon: const Icon(Icons.save_rounded, size: 18),
                 label: Text(_updatingProfile ? 'Saving...' : 'Save Profile'),
               ),
             ),
@@ -311,7 +440,9 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
   Widget _buildNewNeedCard() {
     return _SectionCard(
       title: 'Post New Need',
-      subtitle: 'Volunteers can raise fresh needs from the field. GPS is preferred, but manual location remains the fallback.',
+      subtitle: 'Raise a fresh need from the field. GPS is preferred, manual location is the fallback.',
+      icon: Icons.campaign_rounded,
+      iconColor: AppColors.dangerRed,
       child: Form(
         key: _needFormKey,
         child: Column(
@@ -320,15 +451,12 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
             const SizedBox(height: AppSpacing.md),
             _buildTextField(_needDescriptionController, 'Description', required: true, maxLines: 3),
             const SizedBox(height: AppSpacing.md),
-            Wrap(
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.md,
+            Row(
               children: <Widget>[
-                SizedBox(
-                  width: 180,
+                Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _needType,
-                    decoration: const InputDecoration(labelText: 'Need type'),
+                    decoration: _dropdownDecoration('Need type'),
                     items: const <DropdownMenuItem<String>>[
                       DropdownMenuItem<String>(value: 'food', child: Text('Food')),
                       DropdownMenuItem<String>(value: 'water', child: Text('Water')),
@@ -339,50 +467,74 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
                     onChanged: (String? value) => setState(() => _needType = value ?? 'medical'),
                   ),
                 ),
-                SizedBox(
-                  width: 180,
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _needUrgency,
-                    decoration: const InputDecoration(labelText: 'Urgency'),
-                    items: const <DropdownMenuItem<String>>[
-                      DropdownMenuItem<String>(value: 'low', child: Text('Low')),
-                      DropdownMenuItem<String>(value: 'medium', child: Text('Medium')),
-                      DropdownMenuItem<String>(value: 'high', child: Text('High')),
+                    decoration: _dropdownDecoration('Urgency'),
+                    items: <DropdownMenuItem<String>>[
+                      DropdownMenuItem<String>(
+                        value: 'low',
+                        child: Row(children: <Widget>[
+                          _UrgencyDot(color: AppColors.successGreen),
+                          const SizedBox(width: 6),
+                          const Text('Low'),
+                        ]),
+                      ),
+                      DropdownMenuItem<String>(
+                        value: 'medium',
+                        child: Row(children: <Widget>[
+                          _UrgencyDot(color: AppColors.warningAmber),
+                          const SizedBox(width: 6),
+                          const Text('Medium'),
+                        ]),
+                      ),
+                      DropdownMenuItem<String>(
+                        value: 'high',
+                        child: Row(children: <Widget>[
+                          _UrgencyDot(color: AppColors.dangerRed),
+                          const SizedBox(width: 6),
+                          const Text('High'),
+                        ]),
+                      ),
                     ],
                     onChanged: (String? value) => setState(() => _needUrgency = value ?? 'medium'),
                   ),
                 ),
+                const SizedBox(width: AppSpacing.md),
                 SizedBox(
-                  width: 180,
-                  child: _buildTextField(_needAffectedController, 'Affected count', required: true),
+                  width: 100,
+                  child: _buildTextField(_needAffectedController, 'Affected', required: true),
                 ),
               ],
             ),
             const SizedBox(height: AppSpacing.md),
-            _buildTextField(_needLocationController, 'Location / locality', required: true),
+            _buildFormRow([
+              _buildTextField(_needLocationController, 'Location / locality', required: true),
+              _buildTextField(_needPincodeController, 'Pincode'),
+            ]),
             const SizedBox(height: AppSpacing.md),
-            _buildTextField(_needPincodeController, 'Pincode'),
-            const SizedBox(height: AppSpacing.md),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: _capturingNeedLocation ? null : _captureNeedLocation,
-                icon: const Icon(Icons.location_searching_rounded),
-                label: Text(
-                  _capturingNeedLocation
-                      ? 'Fetching GPS...'
-                      : _needLocation == null
-                          ? 'Use GPS For Need'
-                          : 'Need GPS captured',
-                ),
-              ),
+            _GpsButton(
+              capturing: _capturingNeedLocation,
+              captured: _needLocation != null,
+              capturedLabel: null,
+              idleLabel: 'Use GPS For Need',
+              loadingLabel: 'Fetching GPS...',
+              capturedButtonLabel: 'Need GPS Captured',
+              onTap: _captureNeedLocation,
             ),
             const SizedBox(height: AppSpacing.lg),
             Align(
               alignment: Alignment.centerLeft,
               child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.dangerRed,
+                  foregroundColor: AppColors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                ),
                 onPressed: _postingNeed ? null : _postNeed,
-                icon: const Icon(Icons.campaign_rounded),
+                icon: const Icon(Icons.campaign_rounded, size: 18),
                 label: Text(_postingNeed ? 'Posting...' : 'Post Need'),
               ),
             ),
@@ -393,27 +545,53 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
   }
 
   Widget _buildNeedsSection() {
+    final List<Map<String, dynamic>> openNeeds = _needs
+        .where((Map<String, dynamic> item) => '${item['status']}' != 'completed')
+        .toList();
+    final List<Map<String, dynamic>> closedNeeds = _needs
+        .where((Map<String, dynamic> item) => '${item['status']}' == 'completed')
+        .toList();
+
     return _SectionCard(
       title: 'Live Requests',
-      subtitle: 'Accept one open need at a time, then mark it completed once resolved.',
+      subtitle: 'Accept one open need at a time. Mark it completed once resolved.',
+      icon: Icons.assignment_rounded,
+      iconColor: AppColors.primaryBlue,
       child: Column(
-        children: _needs.isEmpty
-            ? <Widget>[
-                Text(
-                  'No open requests right now.',
-                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral600),
-                ),
-              ]
-            : _needs.map((Map<String, dynamic> need) {
-                final bool canAccept = !_hasActiveAssignment;
-                return _NeedCard(
-                  need: need,
-                  volunteerProfileId: _volunteerProfileId,
-                  canAccept: canAccept,
-                  onAccept: () => _assignNeed('${need['id']}'),
-                  onComplete: () => _completeNeed('${need['id']}'),
-                );
-              }).toList(),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          if (_needs.isEmpty)
+            _EmptyState(
+              icon: Icons.check_circle_outline_rounded,
+              message: 'No open requests right now.',
+            )
+          else ...<Widget>[
+            if (openNeeds.isNotEmpty) ...<Widget>[
+              ...openNeeds.map((Map<String, dynamic> need) => _NeedCard(
+                    need: need,
+                    volunteerProfileId: _volunteerProfileId,
+                    canAccept: !_hasActiveAssignment,
+                    onAccept: () => _assignNeed('${need['id']}'),
+                    onComplete: () => _completeNeed('${need['id']}'),
+                  )),
+            ],
+            if (closedNeeds.isNotEmpty) ...<Widget>[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'COMPLETED',
+                style: AppTextStyles.labelSmall.copyWith(color: AppColors.neutral400, letterSpacing: 1.2),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              ...closedNeeds.map((Map<String, dynamic> need) => _NeedCard(
+                    need: need,
+                    volunteerProfileId: _volunteerProfileId,
+                    canAccept: false,
+                    onAccept: () => _assignNeed('${need['id']}'),
+                    onComplete: () => _completeNeed('${need['id']}'),
+                  )),
+            ],
+          ],
+        ],
       ),
     );
   }
@@ -421,24 +599,27 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
   Widget _buildCampsSection() {
     return _SectionCard(
       title: 'Camp Visibility',
-      subtitle: 'Camps remain your return points. Managers can check you back in, which sets your active location to the camp for the future map view.',
+      subtitle: 'Managers check you back in, which sets your active location to the camp.',
+      icon: Icons.location_city_rounded,
+      iconColor: AppColors.primaryBlue,
       child: Column(
         children: _camps.isEmpty
             ? <Widget>[
-                Text(
-                  'No camps have been created yet.',
-                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral600),
+                _EmptyState(
+                  icon: Icons.location_city_outlined,
+                  message: 'No camps have been created yet.',
                 ),
               ]
             : _camps.map((Map<String, dynamic> camp) {
                 final int assignedVolunteers = _volunteers.where(
                   (Map<String, dynamic> volunteer) => volunteer['camp_id'] == camp['id'],
                 ).length;
+                final bool isActive = '${camp['status']}' == 'active';
                 return Container(
-                  margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
                   padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
-                    color: AppColors.neutral50,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(AppRadius.md),
                     border: Border.all(color: AppColors.neutral200),
                   ),
@@ -446,29 +627,61 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Container(
-                        width: 44,
-                        height: 44,
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
                           color: AppColors.primaryBlueLight,
                           borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
-                        child: const Icon(Icons.location_city_rounded, color: AppColors.primaryBlue),
+                        child: const Icon(Icons.location_city_rounded, color: AppColors.primaryBlue, size: 20),
                       ),
                       const SizedBox(width: AppSpacing.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            Text('${camp['name']}', style: AppTextStyles.titleMedium),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              '${camp['location']?['label'] ?? 'Unknown location'} | ${camp['zone_id']}',
-                              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral600),
+                            Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: Text('${camp['name']}', style: AppTextStyles.titleMedium),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: isActive ? AppColors.successGreenLight : AppColors.neutral100,
+                                    borderRadius: BorderRadius.circular(AppRadius.full),
+                                  ),
+                                  child: Text(
+                                    isActive ? 'ACTIVE' : '${camp['status'] ?? 'UNKNOWN'}'.toUpperCase(),
+                                    style: AppTextStyles.labelSmall.copyWith(
+                                      color: isActive ? AppColors.successGreen : AppColors.neutral500,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: AppSpacing.xs),
                             Text(
-                              'Occupancy ${camp['current_occupancy'] ?? 0}/${camp['capacity'] ?? 0} | Assigned volunteers $assignedVolunteers',
+                              '${camp['location']?['label'] ?? 'Unknown location'} · Zone ${camp['zone_id']}',
                               style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral500),
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            Row(
+                              children: <Widget>[
+                                const Icon(Icons.people_outline_rounded, size: 14, color: AppColors.neutral400),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Occupancy ${camp['current_occupancy'] ?? 0}/${camp['capacity'] ?? 0}',
+                                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral500),
+                                ),
+                                const SizedBox(width: AppSpacing.md),
+                                const Icon(Icons.assignment_ind_outlined, size: 14, color: AppColors.neutral400),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$assignedVolunteers assigned',
+                                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral500),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -478,6 +691,37 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
                 );
               }).toList(),
       ),
+    );
+  }
+
+  InputDecoration _dropdownDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: AppColors.neutral50,
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderSide: const BorderSide(color: AppColors.neutral200),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderSide: const BorderSide(color: AppColors.neutral200),
+      ),
+    );
+  }
+
+  Widget _buildFormRow(List<Widget> children) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children
+          .expand((Widget child) sync* {
+            yield Expanded(child: child);
+            if (child != children.last) {
+              yield const SizedBox(width: AppSpacing.md);
+            }
+          })
+          .toList(),
     );
   }
 
@@ -491,7 +735,28 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
       controller: controller,
       maxLines: maxLines,
       validator: required ? (String? value) => _requiredValidator(value, label) : null,
-      decoration: InputDecoration(labelText: required ? '$label *' : label),
+      decoration: InputDecoration(
+        labelText: required ? '$label *' : label,
+        filled: true,
+        fillColor: AppColors.neutral50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: AppColors.neutral200),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: AppColors.neutral200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: AppColors.primaryBlue, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: AppColors.dangerRed),
+        ),
+      ),
     );
   }
 
@@ -532,9 +797,7 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
     setState(() => _capturingProfileLocation = true);
     try {
       final CapturedLocation capturedLocation = await LocationService.getCurrentLocation();
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _profileLocation = capturedLocation;
       });
@@ -542,14 +805,10 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
         const SnackBar(content: Text('Profile GPS location captured.')),
       );
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() => _error = '$error');
     } finally {
-      if (mounted) {
-        setState(() => _capturingProfileLocation = false);
-      }
+      if (mounted) setState(() => _capturingProfileLocation = false);
     }
   }
 
@@ -557,9 +816,7 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
     setState(() => _capturingNeedLocation = true);
     try {
       final CapturedLocation capturedLocation = await LocationService.getCurrentLocation();
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _needLocation = capturedLocation;
       });
@@ -567,14 +824,10 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
         const SnackBar(content: Text('Need GPS location captured.')),
       );
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() => _error = '$error');
     } finally {
-      if (mounted) {
-        setState(() => _capturingNeedLocation = false);
-      }
+      if (mounted) setState(() => _capturingNeedLocation = false);
     }
   }
 
@@ -628,18 +881,12 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
         _error = error.message ?? 'Unable to load volunteer operations.';
       });
     } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _registerVolunteer() async {
-    if (!_registrationFormKey.currentState!.validate()) {
-      return;
-    }
+    if (!_registrationFormKey.currentState!.validate()) return;
     setState(() {
       _submitting = true;
       _error = null;
@@ -675,18 +922,12 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
         _error = error.response?.data.toString() ?? error.message ?? 'Unable to register volunteer.';
       });
     } finally {
-      if (mounted) {
-        setState(() {
-          _submitting = false;
-        });
-      }
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
   Future<void> _updateProfile() async {
-    if (_volunteerProfileId == null || !_profileFormKey.currentState!.validate()) {
-      return;
-    }
+    if (_volunteerProfileId == null || !_profileFormKey.currentState!.validate()) return;
     setState(() {
       _updatingProfile = true;
       _error = null;
@@ -712,16 +953,12 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
         _error = error.response?.data.toString() ?? error.message ?? 'Unable to update profile.';
       });
     } finally {
-      if (mounted) {
-        setState(() => _updatingProfile = false);
-      }
+      if (mounted) setState(() => _updatingProfile = false);
     }
   }
 
   Future<void> _postNeed() async {
-    if (!_needFormKey.currentState!.validate()) {
-      return;
-    }
+    if (!_needFormKey.currentState!.validate()) return;
     setState(() {
       _postingNeed = true;
       _error = null;
@@ -757,9 +994,7 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
         _error = error.response?.data.toString() ?? error.message ?? 'Unable to post need.';
       });
     } finally {
-      if (mounted) {
-        setState(() => _postingNeed = false);
-      }
+      if (mounted) setState(() => _postingNeed = false);
     }
   }
 
@@ -807,6 +1042,198 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Supporting widgets
+// ---------------------------------------------------------------------------
+
+class _StatItem {
+  const _StatItem({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.bgColor,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final Color bgColor;
+}
+
+class _SummaryPanel extends StatelessWidget {
+  const _SummaryPanel({required this.items});
+
+  final List<_StatItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: items
+          .map(
+            (_StatItem item) => Expanded(
+              child: Container(
+                margin: EdgeInsets.only(
+                  right: item == items.last ? 0 : AppSpacing.sm,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.md,
+                  horizontal: AppSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: AppColors.neutral200),
+                ),
+                child: Column(
+                  children: <Widget>[
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: item.bgColor,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                      child: Icon(item.icon, color: item.color, size: 18),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      item.value,
+                      style: AppTextStyles.headlineMedium.copyWith(
+                        color: AppColors.neutral900,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item.label,
+                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral500),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+    required this.icon,
+    required this.iconColor,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+  final IconData icon;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.neutral200),
+      ),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(icon, size: 18, color: iconColor),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTextStyles.titleMedium.copyWith(color: AppColors.neutral900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            subtitle,
+            style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral500),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Container(height: 1, color: AppColors.neutral100),
+          const SizedBox(height: AppSpacing.md),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _GpsButton extends StatelessWidget {
+  const _GpsButton({
+    required this.capturing,
+    required this.captured,
+    required this.capturedLabel,
+    required this.idleLabel,
+    required this.loadingLabel,
+    required this.capturedButtonLabel,
+    required this.onTap,
+  });
+
+  final bool capturing;
+  final bool captured;
+  final String? capturedLabel;
+  final String idleLabel;
+  final String loadingLabel;
+  final String capturedButtonLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        OutlinedButton.icon(
+          onPressed: capturing ? null : onTap,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: captured ? AppColors.successGreen : AppColors.primaryBlue,
+            side: BorderSide(
+              color: captured ? AppColors.successGreen : AppColors.primaryBlue,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 10),
+          ),
+          icon: Icon(
+            capturing
+                ? Icons.gps_not_fixed_rounded
+                : captured
+                    ? Icons.gps_fixed_rounded
+                    : Icons.my_location_rounded,
+            size: 16,
+          ),
+          label: Text(
+            capturing ? loadingLabel : captured ? capturedButtonLabel : idleLabel,
+            style: AppTextStyles.labelMedium,
+          ),
+        ),
+        if (capturedLabel != null) ...<Widget>[
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            capturedLabel!,
+            style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral500),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _NeedCard extends StatelessWidget {
   const _NeedCard({
     required this.need,
@@ -822,67 +1249,191 @@ class _NeedCard extends StatelessWidget {
   final VoidCallback onAccept;
   final VoidCallback onComplete;
 
+  Color _urgencyColor(String urgency) {
+    switch (urgency) {
+      case 'high':
+        return AppColors.dangerRed;
+      case 'medium':
+        return AppColors.warningAmber;
+      case 'low':
+      default:
+        return AppColors.successGreen;
+    }
+  }
+
+  Color _urgencyBgColor(String urgency) {
+    switch (urgency) {
+      case 'high':
+        return AppColors.dangerRedLight;
+      case 'medium':
+        return AppColors.warningAmberLight;
+      case 'low':
+      default:
+        return AppColors.successGreenLight;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final String status = '${need['status'] ?? 'pending'}';
+    final String urgency = '${need['urgency'] ?? 'low'}';
     final bool assignedToMe = '${need['assigned_volunteer_id'] ?? ''}' == volunteerProfileId;
     final bool isOpen = status == 'pending';
     final bool isCompleted = status == 'completed';
+    final Color urgencyColor = _urgencyColor(urgency);
+    final Color urgencyBg = _urgencyBgColor(urgency);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.md),
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       decoration: BoxDecoration(
-        color: AppColors.neutral50,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.neutral200),
+        border: Border.all(
+          color: isCompleted
+              ? AppColors.neutral200
+              : assignedToMe
+                  ? AppColors.primaryBlue
+                  : urgencyColor.withOpacity(0.4),
+        ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  '${need['title'] ?? need['need_type'] ?? 'Need'}',
-                  style: AppTextStyles.titleMedium.copyWith(color: AppColors.neutral900),
-                ),
+          // Urgency accent bar
+          if (!isCompleted)
+            Container(
+              height: 3,
+              decoration: BoxDecoration(
+                color: urgencyColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.md)),
               ),
-              _Pill(label: status.toUpperCase()),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            '${need['description'] ?? need['contact_info']?['notes'] ?? 'Operational request'}',
-            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral600),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            '${need['location']?['label'] ?? 'Unknown location'} | urgency ${need['urgency'] ?? '-'} | affected ${need['affected_count'] ?? 1}',
-            style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral500),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: <Widget>[
-              if (isOpen)
-                ElevatedButton.icon(
-                  onPressed: canAccept ? onAccept : null,
-                  icon: const Icon(Icons.task_alt_rounded),
-                  label: Text(canAccept ? 'Accept' : 'Finish active job first'),
-                )
-              else if (assignedToMe && !isCompleted)
-                ElevatedButton.icon(
-                  onPressed: onComplete,
-                  icon: const Icon(Icons.check_circle_rounded),
-                  label: const Text('Mark Completed'),
-                )
-              else
-                OutlinedButton.icon(
-                  onPressed: null,
-                  icon: const Icon(Icons.visibility_rounded),
-                  label: Text(isCompleted ? 'Completed' : 'Assigned'),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        '${need['title'] ?? need['need_type'] ?? 'Need'}',
+                        style: AppTextStyles.titleMedium.copyWith(
+                          color: isCompleted ? AppColors.neutral400 : AppColors.neutral900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    if (!isCompleted)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: urgencyBg,
+                          borderRadius: BorderRadius.circular(AppRadius.full),
+                        ),
+                        child: Text(
+                          urgency.toUpperCase(),
+                          style: AppTextStyles.labelSmall.copyWith(color: urgencyColor),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.neutral100,
+                          borderRadius: BorderRadius.circular(AppRadius.full),
+                        ),
+                        child: Text(
+                          'DONE',
+                          style: AppTextStyles.labelSmall.copyWith(color: AppColors.neutral400),
+                        ),
+                      ),
+                  ],
                 ),
-            ],
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '${need['description'] ?? need['contact_info']?['notes'] ?? 'Operational request'}',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: isCompleted ? AppColors.neutral400 : AppColors.neutral600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: <Widget>[
+                    const Icon(Icons.place_rounded, size: 12, color: AppColors.neutral400),
+                    const SizedBox(width: 3),
+                    Expanded(
+                      child: Text(
+                        '${need['location']?['label'] ?? 'Unknown'}',
+                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral400),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    const Icon(Icons.people_outline_rounded, size: 12, color: AppColors.neutral400),
+                    const SizedBox(width: 3),
+                    Text(
+                      '${need['affected_count'] ?? 1} affected',
+                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral400),
+                    ),
+                  ],
+                ),
+                if (!isCompleted) ...<Widget>[
+                  const SizedBox(height: AppSpacing.md),
+                  if (isOpen)
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: canAccept ? AppColors.primaryBlue : AppColors.neutral100,
+                          foregroundColor: canAccept ? AppColors.white : AppColors.neutral400,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                          elevation: 0,
+                        ),
+                        onPressed: canAccept ? onAccept : null,
+                        icon: const Icon(Icons.task_alt_rounded, size: 16),
+                        label: Text(
+                          canAccept ? 'Accept This Need' : 'Finish active job first',
+                          style: AppTextStyles.labelMedium,
+                        ),
+                      ),
+                    )
+                  else if (assignedToMe)
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.successGreen,
+                          foregroundColor: AppColors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                          elevation: 0,
+                        ),
+                        onPressed: onComplete,
+                        icon: const Icon(Icons.check_circle_rounded, size: 16),
+                        label: Text('Mark Completed', style: AppTextStyles.labelMedium),
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.neutral400,
+                          side: const BorderSide(color: AppColors.neutral200),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                        ),
+                        onPressed: null,
+                        icon: const Icon(Icons.assignment_ind_rounded, size: 16),
+                        label: const Text('Assigned to another volunteer'),
+                      ),
+                    ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -890,82 +1441,61 @@ class _NeedCard extends StatelessWidget {
   }
 }
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.title,
-    required this.subtitle,
-    required this.child,
-  });
+class _WhitePill extends StatelessWidget {
+  const _WhitePill({required this.label});
 
-  final String title;
-  final String subtitle;
-  final Widget child;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(title, style: AppTextStyles.titleLarge.copyWith(color: AppColors.neutral900)),
-            const SizedBox(height: AppSpacing.xs),
-            Text(subtitle, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral600)),
-            const SizedBox(height: AppSpacing.lg),
-            child,
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(AppRadius.full),
+        border: Border.all(color: Colors.white.withOpacity(0.3)),
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.labelSmall.copyWith(color: AppColors.white),
       ),
     );
   }
 }
 
-class _SummaryPanel extends StatelessWidget {
-  const _SummaryPanel({
-    required this.title,
-    required this.items,
-  });
+class _UrgencyDot extends StatelessWidget {
+  const _UrgencyDot({required this.color});
 
-  final String title;
-  final Map<String, String> items;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+      child: Center(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(title, style: AppTextStyles.titleLarge),
-            const SizedBox(height: AppSpacing.md),
-            Wrap(
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.md,
-              children: items.entries
-                  .map(
-                    (MapEntry<String, String> entry) => Container(
-                      width: 180,
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      decoration: BoxDecoration(
-                        color: AppColors.neutral50,
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                        border: Border.all(color: AppColors.neutral200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(entry.value, style: AppTextStyles.displayMedium.copyWith(fontSize: 24)),
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(entry.key, style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral500)),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
+            Icon(icon, size: 36, color: AppColors.neutral300),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              message,
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral400),
             ),
           ],
         ),
@@ -1004,16 +1534,25 @@ class _ErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.dangerRed.withOpacity(0.1),
+        color: AppColors.dangerRedLight,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.dangerRed.withOpacity(0.25)),
+        border: Border.all(color: AppColors.dangerRed.withOpacity(0.3)),
       ),
-      child: Text(
-        message,
-        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.dangerRed),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Icon(Icons.error_outline_rounded, color: AppColors.dangerRed, size: 18),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.dangerRed),
+            ),
+          ),
+        ],
       ),
     );
   }
