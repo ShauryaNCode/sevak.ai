@@ -2530,7 +2530,7 @@ class _SectionSurface extends StatelessWidget {
             Text(
               title,
               style: AppTextStyles.titleLarge.copyWith(
-                color: AppColors.neutral900,
+                color: AppColors.neutral100,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -2592,7 +2592,12 @@ class _ManagementTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(title, style: AppTextStyles.titleMedium),
+                Text(
+                  title,
+                  style: AppTextStyles.titleMedium.copyWith(
+                    color: AppColors.neutral900,
+                  ),
+                ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   subtitle,

@@ -2,6 +2,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../features/authentication/domain/entities/auth_user.dart';
@@ -102,8 +103,18 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
     return assignmentId.isNotEmpty;
   }
 
+  Map<String, dynamic>? get _activeAssignedNeed {
+    for (final Map<String, dynamic> need in _needs) {
+      if ('${need['assigned_volunteer_id'] ?? ''}' == _volunteerProfileId && '${need['status'] ?? ''}' != 'completed') {
+        return need;
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final Map<String, dynamic>? activeNeed = _activeAssignedNeed;
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
@@ -152,50 +163,224 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
                 ],
               ),
             )
-          : ListView(
-              padding: const EdgeInsets.all(AppSpacing.md),
+          : Stack(
               children: <Widget>[
-                if (_error != null) _ErrorBanner(message: _error!),
-                _SummaryPanel(
-                  items: <_StatItem>[
-                    _StatItem(
-                      label: 'Open Needs',
-                      value: '${_needs.where((Map<String, dynamic> item) => '${item['status']}' != 'completed').length}',
-                      icon: Icons.campaign_rounded,
-                      color: AppColors.dangerRed,
-                      bgColor: AppColors.dangerRedLight,
+                IgnorePointer(
+                  ignoring: activeNeed != null,
+                  child: Opacity(
+                    opacity: activeNeed == null ? 1 : 0.18,
+                    child: ListView(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      children: <Widget>[
+                        if (_error != null) _ErrorBanner(message: _error!),
+                        _SummaryPanel(
+                          items: <_StatItem>[
+                            _StatItem(
+                              label: 'Open Needs',
+                              value: '${_needs.where((Map<String, dynamic> item) => '${item['status']}' != 'completed').length}',
+                              icon: Icons.campaign_rounded,
+                              color: AppColors.dangerRed,
+                              bgColor: AppColors.dangerRedLight,
+                            ),
+                            _StatItem(
+                              label: 'Active Camps',
+                              value: '${_camps.where((Map<String, dynamic> item) => '${item['status']}' == 'active').length}',
+                              icon: Icons.location_city_rounded,
+                              color: AppColors.primaryBlue,
+                              bgColor: AppColors.primaryBlueLight,
+                            ),
+                            _StatItem(
+                              label: 'Available',
+                              value: '${_volunteers.where((Map<String, dynamic> item) => item['availability'] == true).length}',
+                              icon: Icons.people_rounded,
+                              color: AppColors.successGreen,
+                              bgColor: AppColors.successGreenLight,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        if (_volunteerProfileId == null) _buildRegistrationCard() else ...<Widget>[
+                          _buildVolunteerStatusCard(),
+                          const SizedBox(height: AppSpacing.md),
+                          _buildProfileUpdateCard(),
+                          const SizedBox(height: AppSpacing.md),
+                          _buildNewNeedCard(),
+                        ],
+                        const SizedBox(height: AppSpacing.md),
+                        _buildNeedsSection(),
+                        const SizedBox(height: AppSpacing.md),
+                        _buildCampsSection(),
+                        const SizedBox(height: AppSpacing.lg),
+                      ],
                     ),
-                    _StatItem(
-                      label: 'Active Camps',
-                      value: '${_camps.where((Map<String, dynamic> item) => '${item['status']}' == 'active').length}',
-                      icon: Icons.location_city_rounded,
-                      color: AppColors.primaryBlue,
-                      bgColor: AppColors.primaryBlueLight,
-                    ),
-                    _StatItem(
-                      label: 'Available',
-                      value: '${_volunteers.where((Map<String, dynamic> item) => item['availability'] == true).length}',
-                      icon: Icons.people_rounded,
-                      color: AppColors.successGreen,
-                      bgColor: AppColors.successGreenLight,
-                    ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.md),
-                if (_volunteerProfileId == null) _buildRegistrationCard() else ...<Widget>[
-                  _buildVolunteerStatusCard(),
-                  const SizedBox(height: AppSpacing.md),
-                  _buildProfileUpdateCard(),
-                  const SizedBox(height: AppSpacing.md),
-                  _buildNewNeedCard(),
-                ],
-                const SizedBox(height: AppSpacing.md),
-                _buildNeedsSection(),
-                const SizedBox(height: AppSpacing.md),
-                _buildCampsSection(),
-                const SizedBox(height: AppSpacing.lg),
+                if (activeNeed != null)
+                  Positioned.fill(
+                    child: Container(
+                      color: const Color(0xB3122030),
+                      child: SafeArea(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          child: _buildActiveNeedOverlay(activeNeed),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
+    );
+  }
+
+  Widget _buildActiveNeedOverlay(Map<String, dynamic> need) {
+    final Map<String, dynamic>? contact = need['contact_info'] as Map<String, dynamic>?;
+    final Map<String, dynamic>? location = need['location'] as Map<String, dynamic>?;
+    final String reporterName = '${contact?['name'] ?? 'Reporter'}';
+    final String reporterPhone = '${contact?['phone'] ?? ''}';
+    final String details = '${need['description'] ?? contact?['notes'] ?? need['title'] ?? 'Operational request'}';
+    final String title = '${need['title'] ?? need['need_type'] ?? 'Assigned need'}';
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(
+                color: Color(0x26000000),
+                blurRadius: 24,
+                offset: Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.warningAmberLight,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                    child: const Icon(Icons.assignment_turned_in_rounded, color: AppColors.warningAmber),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Active Mission',
+                          style: AppTextStyles.labelLarge.copyWith(
+                            color: AppColors.primaryBlue,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                        Text(
+                          title,
+                          style: AppTextStyles.headlineMedium.copyWith(color: AppColors.neutral900),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.warningAmberLight,
+                      borderRadius: BorderRadius.circular(AppRadius.full),
+                    ),
+                    child: Text(
+                      '${need['urgency'] ?? 'medium'}'.toUpperCase(),
+                      style: AppTextStyles.labelSmall.copyWith(color: AppColors.warningAmber),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                details,
+                style: AppTextStyles.bodyLarge.copyWith(color: AppColors.neutral600),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: <Widget>[
+                  _DetailChip(icon: Icons.place_rounded, label: '${location?['label'] ?? 'Unknown location'}'),
+                  _DetailChip(icon: Icons.people_outline_rounded, label: '${need['affected_count'] ?? 1} affected'),
+                  _DetailChip(icon: Icons.category_rounded, label: '${need['need_type'] ?? 'general'}'),
+                  _DetailChip(icon: Icons.source_rounded, label: '${need['source'] ?? 'APP'}'),
+                  if ('${location?['pincode'] ?? ''}'.isNotEmpty)
+                    _DetailChip(icon: Icons.pin_drop_rounded, label: 'PIN ${location?['pincode']}'),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.neutral50,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: AppColors.neutral200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text('Reporter', style: AppTextStyles.titleMedium.copyWith(color: AppColors.neutral900)),
+                    const SizedBox(height: AppSpacing.sm),
+                    _DetailRow(label: 'Name', value: reporterName),
+                    _DetailRow(label: 'Phone', value: reporterPhone.isEmpty ? 'Not shared' : reporterPhone),
+                    _DetailRow(
+                      label: 'Location',
+                      value:
+                          '${location?['label'] ?? 'Unknown'}${location?['lat'] != null && location?['lng'] != null ? ' (${location?['lat']}, ${location?['lng']})' : ''}',
+                    ),
+                    _DetailRow(label: 'Notes', value: '${contact?['notes'] ?? details}'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primaryBlue,
+                        side: const BorderSide(color: AppColors.primaryBlue),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                      ),
+                      onPressed: reporterPhone.isEmpty ? null : () => _contactReporter(reporterPhone),
+                      icon: const Icon(Icons.call_rounded),
+                      label: const Text('Contact Reporter'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.successGreen,
+                        foregroundColor: AppColors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                      ),
+                      onPressed: () => _completeNeed('${need['id']}'),
+                      icon: const Icon(Icons.check_circle_rounded),
+                      label: const Text('Mark as Completed'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -699,6 +884,8 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
       labelText: label,
       filled: true,
       fillColor: AppColors.neutral50,
+      labelStyle: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral500),
+      floatingLabelStyle: AppTextStyles.bodySmall.copyWith(color: AppColors.primaryBlue),
       contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -734,11 +921,16 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
+      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral900),
+      cursorColor: AppColors.primaryBlue,
       validator: required ? (String? value) => _requiredValidator(value, label) : null,
       decoration: InputDecoration(
         labelText: required ? '$label *' : label,
         filled: true,
         fillColor: AppColors.neutral50,
+        labelStyle: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral500),
+        floatingLabelStyle: AppTextStyles.bodySmall.copyWith(color: AppColors.primaryBlue),
+        hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral400),
         contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
@@ -831,6 +1023,19 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
     }
   }
 
+  Future<void> _contactReporter(String phoneNumber) async {
+    final Uri phoneUri = Uri(scheme: 'tel', path: phoneNumber);
+    if (await launchUrl(phoneUri, mode: LaunchMode.externalApplication)) {
+      return;
+    }
+    final Uri smsUri = Uri(scheme: 'sms', path: phoneNumber);
+    if (await launchUrl(smsUri, mode: LaunchMode.externalApplication)) {
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _error = 'Unable to launch phone or SMS app for $phoneNumber');
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -846,11 +1051,27 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
 
       final List<Map<String, dynamic>> volunteers =
           List<Map<String, dynamic>>.from(volunteersResponse.data?['data'] as List<dynamic>? ?? <dynamic>[]);
+      bool storedIdExists = false;
+      if (_volunteerProfileId != null) {
+        for (final Map<String, dynamic> volunteer in volunteers) {
+          if ('${volunteer['id']}' == _volunteerProfileId) {
+            storedIdExists = true;
+            break;
+          }
+        }
+      }
+
+      if (!storedIdExists) {
+        _volunteerProfileId = null;
+        await prefs.remove(_volunteerProfileIdKey);
+      }
+
       if (_volunteerProfileId == null) {
         for (final Map<String, dynamic> volunteer in volunteers) {
           final String phone = '${volunteer['phone_number'] ?? ''}';
           final String whatsapp = '${volunteer['whatsapp_number'] ?? ''}';
-          if (phone == widget.user.phone || whatsapp == widget.user.phone) {
+          final String alternate = '${volunteer['alternate_number'] ?? ''}';
+          if (phone == widget.user.phone || whatsapp == widget.user.phone || alternate == widget.user.phone) {
             _volunteerProfileId = '${volunteer['id']}';
             await prefs.setString(_volunteerProfileIdKey, _volunteerProfileId!);
             break;
@@ -904,7 +1125,7 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
           'designation': _designationController.text.trim(),
           'zone_id': widget.user.zoneId,
           'skills': _skillsFromText(),
-          'notes': 'Registered from field app',
+          'notes': 'Volunteer profile registered from mobile app',
           'location': _profileLocationPayload(),
           'availability': true,
           'status': 'available',
@@ -949,6 +1170,18 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
       );
       await _load();
     } on DioException catch (error) {
+      if (error.response?.statusCode == 404) {
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_volunteerProfileIdKey);
+        _volunteerProfileId = null;
+        await _load();
+        if (mounted) {
+          setState(() {
+            _error = 'Your saved volunteer profile was no longer found. The app refreshed your session; please try saving again.';
+          });
+        }
+        return;
+      }
       setState(() {
         _error = error.response?.data.toString() ?? error.message ?? 'Unable to update profile.';
       });
@@ -964,6 +1197,9 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
       _error = null;
     });
     try {
+      final String noteText = _needDescriptionController.text.trim().isNotEmpty
+          ? _needDescriptionController.text.trim()
+          : _needTitleController.text.trim();
       await _dio.post<Map<String, dynamic>>(
         '/needs',
         data: <String, dynamic>{
@@ -977,7 +1213,7 @@ class _VolunteerDashboardScreenState extends State<VolunteerDashboardScreen> {
           'contact_info': <String, dynamic>{
             'name': _nameController.text.trim(),
             'phone': widget.user.phone,
-            'notes': 'Raised from volunteer app',
+            'notes': noteText,
           },
           'vulnerability_score': 0.7,
         },
@@ -1433,6 +1669,74 @@ class _NeedCard extends StatelessWidget {
                     ),
                 ],
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailChip extends StatelessWidget {
+  const _DetailChip({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: AppColors.neutral50,
+        borderRadius: BorderRadius.circular(AppRadius.full),
+        border: Border.all(color: AppColors.neutral200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 14, color: AppColors.primaryBlue),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: AppTextStyles.bodySmall.copyWith(color: AppColors.neutral600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          SizedBox(
+            width: 72,
+            child: Text(
+              label,
+              style: AppTextStyles.labelMedium.copyWith(color: AppColors.neutral500),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.neutral800),
             ),
           ),
         ],

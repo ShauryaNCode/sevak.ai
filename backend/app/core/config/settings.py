@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     twilio_whatsapp_number: str | None = None
     twilio_sms_number: str | None = None
 
+    use_firestore: bool = False
+    firebase_project_id: str | None = None
+    firebase_credentials_path: Path | None = None
+    firestore_collection_name: str = "sevakai_documents"
     use_couchdb: bool = False
     couchdb_url: str | None = None
     couchdb_db_name: str = "sevakai"
