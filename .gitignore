@@ -38,7 +38,6 @@ htmlcov/
 venv/
 
 # Generated / local data
-data/
 tmp/
 temp/
 secrets/
