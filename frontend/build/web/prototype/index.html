@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SevakAI — Prototype</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0a0c0f;
+      --surface: #111418;
+      --border: #1e2329;
+      --accent: #e8ff47;
+      --accent2: #ff6b35;
+      --text: #f0f2f5;
+      --muted: #6b7280;
+      --card: #13171c;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.2rem 3rem;
+      background: rgba(10,12,15,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.3rem;
+      letter-spacing: -0.02em;
+      color: var(--accent);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--accent); }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 8rem 3rem 4rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -200px; right: -200px;
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, rgba(232,255,71,0.07) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: -100px; left: -100px;
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(255,107,53,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(232,255,71,0.08);
+      border: 1px solid rgba(232,255,71,0.2);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.4rem 1rem;
+      border-radius: 100px;
+      margin-bottom: 2rem;
+      width: fit-content;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .hero h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(3rem, 7vw, 6rem);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      max-width: 800px;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+
+    .hero h1 span { color: var(--accent); }
+
+    .hero-sub {
+      margin-top: 1.5rem;
+      font-size: 1.15rem;
+      color: var(--muted);
+      max-width: 560px;
+      font-weight: 300;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+
+    .hero-links {
+      display: flex;
+      gap: 1rem;
+      margin-top: 3rem;
+      flex-wrap: wrap;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.85rem 1.8rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0a0c0f;
+    }
+
+    .btn-primary:hover {
+      background: #d4eb30;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(232,255,71,0.25);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .btn-orange {
+      background: var(--accent2);
+      color: white;
+    }
+
+    .btn-orange:hover {
+      background: #e55a24;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(255,107,53,0.25);
+    }
+
+    /* SECTION COMMON */
+    section {
+      padding: 6rem 3rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-desc {
+      color: var(--muted);
+      font-size: 1.05rem;
+      max-width: 600px;
+      font-weight: 300;
+    }
+
+    hr.divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0 3rem;
+    }
+
+    /* CARDS */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-top: 3rem;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      transition: border-color 0.2s, transform 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card:hover {
+      border-color: rgba(232,255,71,0.3);
+      transform: translateY(-4px);
+    }
+
+    .card-icon {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    .card h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+
+    .card p {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    /* FLOW / TIMELINE */
+    .flow-list {
+      margin-top: 3rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .flow-item {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 1.5rem;
+      padding: 1.5rem 0;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+
+    .flow-item:last-child { border-bottom: none; }
+
+    .flow-num {
+      width: 40px;
+      height: 40px;
+      background: rgba(232,255,71,0.08);
+      border: 1px solid rgba(232,255,71,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 0.85rem;
+      color: var(--accent);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .flow-content h4 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .flow-content p {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    /* TWO COL */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      margin-top: 3rem;
+      align-items: start;
+    }
+
+    @media (max-width: 768px) {
+      .two-col { grid-template-columns: 1fr; }
+      nav { padding: 1rem 1.5rem; }
+      .nav-links { display: none; }
+      section { padding: 4rem 1.5rem; }
+      .hero { padding: 7rem 1.5rem 3rem; }
+      hr.divider { margin: 0 1.5rem; }
+    }
+
+    /* PILL TAGS */
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .tag {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 0.3rem 0.9rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    /* DATA FLOW */
+    .sync-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      margin-top: 3rem;
+    }
+
+    .sync-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.2rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      transition: border-color 0.2s;
+    }
+
+    .sync-item:hover { border-color: rgba(232,255,71,0.2); }
+
+    .sync-arrow {
+      color: var(--accent);
+      font-size: 1.2rem;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .sync-item p { color: var(--muted); font-size: 0.9rem; }
+    .sync-item strong { color: var(--text); }
+
+    /* REVIEWER STEPS */
+    .steps {
+      margin-top: 3rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+
+    .step {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.5rem;
+      transition: all 0.2s;
+    }
+
+    .step:hover {
+      border-color: rgba(255,107,53,0.3);
+      transform: translateY(-3px);
+    }
+
+    .step-num {
+      font-family: 'Syne', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: rgba(255,107,53,0.25);
+      line-height: 1;
+      margin-bottom: 0.75rem;
+    }
+
+    .step h4 {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .step p { color: var(--muted); font-size: 0.82rem; }
+
+    /* LINKS TABLE */
+    .links-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.5rem;
+      margin-top: 3rem;
+    }
+
+    .link-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      text-decoration: none;
+      color: var(--text);
+      transition: all 0.2s;
+      display: block;
+    }
+
+    .link-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(232,255,71,0.08);
+    }
+
+    .link-type {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .link-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--accent);
+    }
+
+    .link-url {
+      font-size: 0.78rem;
+      color: var(--muted);
+      word-break: break-all;
+    }
+
+    /* AI SECTION */
+    .ai-box {
+      background: linear-gradient(135deg, rgba(232,255,71,0.05), rgba(255,107,53,0.05));
+      border: 1px solid rgba(232,255,71,0.15);
+      border-radius: 20px;
+      padding: 3rem;
+      margin-top: 3rem;
+    }
+
+    .ai-box h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+    }
+
+    .ai-fields {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+
+    .ai-field {
+      background: rgba(232,255,71,0.08);
+      border: 1px solid rgba(232,255,71,0.2);
+      color: var(--accent);
+      border-radius: 8px;
+      padding: 0.4rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem 3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    footer span { color: var(--accent); font-weight: 600; }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">SevakAI</div>
+  <ul class="nav-links">
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#volunteer">Volunteer App</a></li>
+    <li><a href="#admin">Admin Dashboard</a></li>
+    <li><a href="#dataflow">Data Flow</a></li>
+    <li><a href="#ai">AI Support</a></li>
+    <li><a href="#walkthrough">Walkthrough</a></li>
+    <li><a href="#links">Links</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">🚨 Disaster Response Coordination Platform</div>
+  <h1>SevakAI<br/><span>Prototype</span></h1>
+  <p class="hero-sub">
+    A two-interface system connecting field volunteers and command coordinators in real-time disaster response operations.
+  </p>
+  <div class="hero-links">
+    <a href="https://sevak-ai-pied.vercel.app" target="_blank" class="btn btn-primary">↗ Live MVP</a>
+    <a href="https://sevak-ai-backend.onrender.com/docs" target="_blank" class="btn btn-outline">Backend Docs</a>
+    <a href="https://sevak-ai-backend.onrender.com/demo" target="_blank" class="btn btn-orange">Backend Demo</a>
+  </div>
+</div>
+
+<hr class="divider"/>
+
+<!-- OVERVIEW -->
+<section id="overview">
+  <div class="reveal">
+    <div class="section-label">01 — Overview</div>
+    <h2 class="section-title">Two interfaces.<br/>One operational truth.</h2>
+    <p class="section-desc">
+      SevakAI is built for active emergency operations. Both interfaces — the volunteer mobile app and the admin web dashboard — connect to the same backend and reflect shared real-time state.
+    </p>
+  </div>
+
+  <div class="card-grid reveal">
+    <div class="card">
+      <div class="card-icon">📱</div>
+      <h3>Volunteer App</h3>
+      <p>Field operations interface for volunteers to register, report needs, receive assignments, and complete missions in the field.</p>
+      <div class="tags">
+        <span class="tag">Phone/OTP Login</span>
+        <span class="tag">GPS Location</span>
+        <span class="tag">Missions</span>
+        <span class="tag">Need Reporting</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🖥️</div>
+      <h3>Admin Dashboard</h3>
+      <p>Command-and-control web interface for coordinators to manage volunteers, camps, needs, and assignments at scale.</p>
+      <div class="tags">
+        <span class="tag">Coordinator Login</span>
+        <span class="tag">Camp Management</span>
+        <span class="tag">Assignments</span>
+        <span class="tag">Role Control</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🤖</div>
+      <h3>AI Triage</h3>
+      <p>Raw communication text is parsed into structured disaster need records, enriched with urgency, type, and affected count.</p>
+      <div class="tags">
+        <span class="tag">AI Pipeline</span>
+        <span class="tag">Auto-structure</span>
+        <span class="tag">Urgency Scoring</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- VOLUNTEER APP -->
+<section id="volunteer">
+  <div class="reveal">
+    <div class="section-label">02 — Volunteer App Screen</div>
+    <h2 class="section-title">Field operations<br/>in every volunteer's pocket.</h2>
+    <p class="section-desc">The volunteer app is the field execution layer — giving responders everything they need to register, receive assignments, and complete missions.</p>
+  </div>
+
+  <div class="two-col reveal">
+    <div>
+      <div class="flow-list">
+        <div class="flow-item">
+          <div class="flow-num">1</div>
+          <div class="flow-content">
+            <h4>Phone/OTP Login</h4>
+            <p>Volunteer logs in using their phone number and OTP. No passwords needed.</p>
+          </div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">2</div>
+          <div class="flow-content">
+            <h4>Registration</h4>
+            <p>New volunteers register with name, phone, WhatsApp, alternate number, qualification, and location.</p>
+          </div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">3</div>
+          <div class="flow-content">
+            <h4>GPS Location Capture</h4>
+            <p>GPS is used when available. If GPS fails, manually entered location acts as fallback.</p>
+          </div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">4</div>
+          <div class="flow-content">
+            <h4>Report a Need</h4>
+            <p>Volunteers can post new disaster needs directly from the app.</p>
+          </div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">5</div>
+          <div class="flow-content">
+            <h4>Active Mission View</h4>
+            <p>Assigned volunteers see the problem title, description, location, source, and reporter contact details.</p>
+          </div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">6</div>
+          <div class="flow-content">
+            <h4>Mark as Completed</h4>
+            <p>On completion, the need closes, volunteer leaves active assignment, and can be re-added to a camp by a manager.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="margin-bottom:1.5rem;">
+        <div class="card-icon">📍</div>
+        <h3>Location Logic</h3>
+        <p>When assigned to a need, volunteer location is tracked as occupied. On task completion, location updates to the completed need's location. When re-added to a camp, it updates to camp location.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔒</div>
+        <h3>One Task at a Time</h3>
+        <p>One volunteer can only handle one active task at a time. The dashboard prioritizes the active mission view when a volunteer is assigned.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- ADMIN DASHBOARD -->
+<section id="admin">
+  <div class="reveal">
+    <div class="section-label">03 — Admin Dashboard Screen</div>
+    <h2 class="section-title">Command &amp; control<br/>for coordinators.</h2>
+    <p class="section-desc">The admin dashboard is the operational nerve center — giving coordinators full visibility and control over volunteers, camps, needs, and assignments.</p>
+  </div>
+
+  <div class="card-grid reveal">
+    <div class="card">
+      <div class="card-icon">👥</div>
+      <h3>Volunteer Management</h3>
+      <p>Manually add volunteers, view phone numbers, promote roles, and assign to camps or needs.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🏕️</div>
+      <h3>Camp Management</h3>
+      <p>Create camps with accurate location capture, assign managers, and add volunteers to camps.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🆘</div>
+      <h3>Need Management</h3>
+      <p>Create needs manually, review AI-generated needs, assign volunteers, and mark needs as completed.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔑</div>
+      <h3>Role Management</h3>
+      <p>Promote volunteers to coordinator or admin access. Camp managers gain elevated access after re-login.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🗺️</div>
+      <h3>Map View</h3>
+      <p>Live operational map showing volunteer positions, camp locations, and active needs.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📊</div>
+      <h3>Overview Dashboard</h3>
+      <p>Live operational sections covering volunteers, camps, needs, and resources at a glance.</p>
+    </div>
+  </div>
+
+  <div class="reveal" style="margin-top:2rem;">
+    <p style="color:var(--muted); font-size:0.9rem; margin-bottom:1rem;">Key dashboard routes:</p>
+    <div class="tags">
+      <span class="tag">/coordinator/dashboard</span>
+      <span class="tag">/coordinator/needs</span>
+      <span class="tag">/coordinator/volunteers</span>
+      <span class="tag">/coordinator/resources</span>
+      <span class="tag">/coordinator/map</span>
+      <span class="tag">/coordinator/settings</span>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- DATA FLOW -->
+<section id="dataflow">
+  <div class="reveal">
+    <div class="section-label">04 — Data Flow</div>
+    <h2 class="section-title">Not two systems.<br/>One shared truth.</h2>
+    <p class="section-desc">The volunteer app and admin dashboard are two interfaces on the same backend. Every action in one is instantly reflected in the other.</p>
+  </div>
+
+  <div class="sync-grid reveal">
+    <div class="sync-item">
+      <div class="sync-arrow">→</div>
+      <div>
+        <strong>Admin creates a volunteer</strong>
+        <p>The volunteer can immediately log in on their phone using the same number.</p>
+      </div>
+    </div>
+    <div class="sync-item">
+      <div class="sync-arrow">→</div>
+      <div>
+        <strong>Admin assigns volunteer to a camp</strong>
+        <p>Volunteer's location automatically updates to the camp's location.</p>
+      </div>
+    </div>
+    <div class="sync-item">
+      <div class="sync-arrow">→</div>
+      <div>
+        <strong>Volunteer posts a need from the field</strong>
+        <p>Admin sees the need appear in the dashboard instantly.</p>
+      </div>
+    </div>
+    <div class="sync-item">
+      <div class="sync-arrow">→</div>
+      <div>
+        <strong>Admin assigns a volunteer to a need</strong>
+        <p>The volunteer app reflects the active mission immediately.</p>
+      </div>
+    </div>
+    <div class="sync-item">
+      <div class="sync-arrow">→</div>
+      <div>
+        <strong>Volunteer marks task as completed</strong>
+        <p>Backend updates need status, assignment state, and volunteer location simultaneously.</p>
+      </div>
+    </div>
+    <div class="sync-item">
+      <div class="sync-arrow">→</div>
+      <div>
+        <strong>Camp manager re-adds volunteer to a camp</strong>
+        <p>Volunteer's location updates back to the camp location.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- AI -->
+<section id="ai">
+  <div class="reveal">
+    <div class="section-label">05 — AI / Automation</div>
+    <h2 class="section-title">Turning raw messages<br/>into structured action.</h2>
+    <p class="section-desc">SevakAI includes an AI-assisted triage pipeline that converts incoming communication text into structured operational records.</p>
+  </div>
+
+  <div class="ai-box reveal">
+    <h3>🤖 AI Triage Pipeline</h3>
+    <p style="color:var(--muted); margin-bottom:1rem;">Raw disaster communication text — such as WhatsApp messages or field reports — is parsed and enriched automatically into structured need records.</p>
+    <p style="color:var(--muted);">Test it directly at <a href="https://sevak-ai-backend.onrender.com/debug/ai-triage" target="_blank" style="color:var(--accent);">&#47;debug&#47;ai-triage</a></p>
+    <div class="ai-fields">
+      <span class="ai-field">Type</span>
+      <span class="ai-field">Urgency</span>
+      <span class="ai-field">Summary</span>
+      <span class="ai-field">Affected Count</span>
+      <span class="ai-field">Location</span>
+      <span class="ai-field">Source</span>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- REVIEWER WALKTHROUGH -->
+<section id="walkthrough">
+  <div class="reveal">
+    <div class="section-label">06 — Reviewer Walkthrough</div>
+    <h2 class="section-title">How to review<br/>SevakAI in 10 steps.</h2>
+    <p class="section-desc">Follow this exact journey to experience the full system — from seeding demo data to confirming cross-interface state sync.</p>
+  </div>
+
+  <div class="steps reveal">
+    <div class="step">
+      <div class="step-num">01</div>
+      <h4>Open Prototype</h4>
+      <p>Read this overview and the two-screen explanation.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <h4>Open Backend Demo</h4>
+      <p>Visit the backend demo page and seed demo data.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <h4>Open Admin MVP</h4>
+      <p>Navigate to the live admin dashboard on Vercel.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <h4>Login as Admin</h4>
+      <p>Use the provided admin credentials to log in.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">05</div>
+      <h4>View Dashboard</h4>
+      <p>View volunteers, camps, and needs in the dashboard.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">06</div>
+      <h4>Assign a Volunteer</h4>
+      <p>Assign a volunteer to an active need from the dashboard.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">07</div>
+      <h4>Check Volunteer Side</h4>
+      <p>See the mission reflected on the volunteer app screen.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">08</div>
+      <h4>Mark Need Completed</h4>
+      <p>Mark the need as completed from admin or volunteer view.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">09</div>
+      <h4>Confirm State Update</h4>
+      <p>Return to admin view and confirm all states have updated.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">10</div>
+      <h4>Explore AI Triage</h4>
+      <p>Try the AI triage endpoint with a sample disaster message.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- LINKS -->
+<section id="links">
+  <div class="reveal">
+    <div class="section-label">07 — Submission Links</div>
+    <h2 class="section-title">Everything in<br/>one place.</h2>
+    <p class="section-desc">All reviewer links for the SevakAI submission.</p>
+  </div>
+
+  <div class="links-grid reveal">
+    <a href="https://sevak-ai-pied.vercel.app" target="_blank" class="link-card">
+      <div class="link-type">MVP</div>
+      <div class="link-name">↗ Live Admin Dashboard</div>
+      <div class="link-url">sevak-ai-pied.vercel.app</div>
+    </a>
+    <a href="https://sevak-ai-pied.vercel.app/prototype" target="_blank" class="link-card">
+      <div class="link-type">Prototype</div>
+      <div class="link-name">↗ This Page</div>
+      <div class="link-url">sevak-ai-pied.vercel.app/prototype</div>
+    </a>
+    <a href="https://sevak-ai-backend.onrender.com/docs" target="_blank" class="link-card">
+      <div class="link-type">Backend Docs</div>
+      <div class="link-name">↗ Swagger / API Docs</div>
+      <div class="link-url">sevak-ai-backend.onrender.com/docs</div>
+    </a>
+    <a href="https://sevak-ai-backend.onrender.com/demo" target="_blank" class="link-card">
+      <div class="link-type">Backend Demo</div>
+      <div class="link-name">↗ Reviewer Controls</div>
+      <div class="link-url">sevak-ai-backend.onrender.com/demo</div>
+    </a>
+  </div>
+
+  <div style="margin-top:3rem; display:flex; gap:1rem; flex-wrap:wrap;" class="reveal">
+    <a href="https://sevak-ai-pied.vercel.app" target="_blank" class="btn btn-primary">Open Live MVP ↗</a>
+    <a href="https://sevak-ai-backend.onrender.com/demo" target="_blank" class="btn btn-orange">Open Backend Demo ↗</a>
+    <a href="https://sevak-ai-backend.onrender.com/docs" target="_blank" class="btn btn-outline">View API Docs ↗</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div>Built for disaster response. Powered by <span>SevakAI</span>.</div>
+  <div style="color:var(--muted); font-size:0.8rem;">FastAPI · Flutter · Firestore · Render · Vercel</div>
+</footer>
+
+<script>
+  // Scroll reveal
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        setTimeout(() => entry.target.classList.add('visible'), i * 80);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  reveals.forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>
