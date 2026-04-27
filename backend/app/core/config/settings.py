@@ -59,6 +59,7 @@ class Settings(BaseSettings):
             "http://127.0.0.1:5000",
             "http://localhost:8000",
             "http://127.0.0.1:8000",
+            "https://sevak-ai-pied.vercel.app",
         ]
     )
     cors_allow_origin_regex: str = r".*"
