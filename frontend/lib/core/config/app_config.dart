@@ -69,7 +69,7 @@ class AppConfig {
   /// Staging configuration for pre-production validation.
   static const AppConfig staging = AppConfig(
     environment: 'staging',
-    apiBaseUrl: 'https://api.staging.sevakai.in/api/v1',
+    apiBaseUrl: 'https://sevak-ai-backend.onrender.com/api/v1',
     couchDbUrl: 'https://couch.staging.sevakai.in',
     enableLogging: true,
     enableAnalytics: false,
@@ -80,7 +80,7 @@ class AppConfig {
   /// Production configuration for live disaster-response operations.
   static const AppConfig production = AppConfig(
     environment: 'prod',
-    apiBaseUrl: 'https://api.sevakai.in/api/v1',
+    apiBaseUrl: 'https://sevak-ai-backend.onrender.com/api/v1',
     couchDbUrl: 'https://couch.sevakai.in',
     enableLogging: false,
     enableAnalytics: true,
