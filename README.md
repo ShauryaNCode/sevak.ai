@@ -9,6 +9,14 @@
 SevakAI is a production-grade, multi-tier disaster management system designed to function in **zero-connectivity environments** while seamlessly syncing when connectivity is restored. Built to scale from a single district hackathon MVP to a nationwide deployment serving millions of relief workers, coordinators, and citizens.
 
 ---
+## 🔗 Project Links & Deployment
+|Resource|Link|Description|
+|---------|--------|------|
+|📺 Demo Video| **[Watch on Youtube](https://youtu.be/0WhDkdsfNGQ?si=3ICJNzikKzsyMQ_M)** | A full walkthrough of the project architecture and features.|
+|✨ Landing Page | **[Landing Page](https://sevak-ai-pied.vercel.app/prototype)** | The official landing page and dashboard deployed on Render.|
+|⚙️ Backend API| **[Wake up Backend](https://sevak-ai-backend.onrender.com/demo)** | Note: Please open this link first to wake the server from its sleep cycle.|
+|🚀 Live MVP| **[Open App](https://sevak-ai-pied.vercel.app)** | Working Deployed Frontend linked to backend| 
+---
 
 ## 🗂️ Repository Structure
 
@@ -333,17 +341,14 @@ SevakAI is designed so that **every critical workflow operates fully offline**:
 
 ---
 
-## 🤝 Contributing
+## 👥 Team
 
-This repository is a **blueprint**. Each module contains a detailed README with design intentions, interface contracts, and implementation guidance. Before writing any code:
-
-1. Read the module README fully
-2. Review relevant ADRs in `docs/adr/`
-3. Ensure your implementation follows the offline-first and clean architecture principles
-4. Write tests first (TDD strongly recommended for critical disaster paths)
+| Contributor | Role | Responsibilities |
+|------------|------|------------------|
+| **[Shaurya Naik](https://github.com/ShauryaNCode)** | Team Lead & Lead Dev | Designed the core project architecture and directory structure. Developed the Flutter-based Admin and Volunteer dashboards. Managed the main backend logic and recorded the project demo video. |
+| **[Siddhant Kerkar](https://github.com/Siddhantdev404)** | AI & Backend Engineer | Engineered the AI pipeline using Gemini 1.5 Flash and Pro. Integrated the AI models into the backend and developed the Admin Heatmap feature for real-time volunteer tracking. |
+| **[Gaurav Parker](https://github.com/DeltaG06)** | DevOps & Presentation | Managed the deployment of the AI pipeline and backend services on Render. Crafted the final presentation and built a dedicated Judge's Demo Page for simulating real-world needs and volunteer actions. |
+| **[Gaurang Khanolkar](https://github.com/gaurang0410)** | Product & UI/UX | Developed the project wireframes, UI color scale, and workflow architecture. Built the official Product Landing Page and managed the frontend deployment on Vercel. |
 
 ---
 
-## 📜 License
-
-MIT — See LICENSE file.
